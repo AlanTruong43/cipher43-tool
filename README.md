@@ -1,44 +1,50 @@
-# 🚀 43GPM External Automation API
+# 🚀 Cipher 43 Tool — Automation API
 
-Hệ thống điều khiển trình duyệt 43GPM (GPM Login) thông qua API, cho phép tích hợp với các phần mềm bên thứ 3.
+API server tự động hóa thao tác trình duyệt cho airdrop farming.
+Tương thích với **mọi antidetect browser** hỗ trợ Chrome Remote Debugging Protocol.
 
 ## 🛠 Yêu cầu hệ thống
 - Python 3.11+
-- Các thư viện cần thiết: `pip install fastapi uvicorn selenium requests pydantic`
-- Đang chạy phần mềm GPM Login (mặc định tại cổng 19995).
+- `pip install -r requirements.txt`
+- Browser đang chạy với Remote Debugging được bật
 
-## 📁 Cấu trúc thư mục chính
-- `api_server.py`: Server chính (FastAPI) để nhận lệnh.
-- `api_client.py`: Client kết nối với API của GPM Login.
-- `project/`: Thư mục chứa các kịch bản tự động hóa (ví dụ: `twitter.py`).
-- `encoding_fix.py`: Hỗ trợ hiển thị tiếng Việt trên màn hình console Windows.
+## 📁 Cấu trúc
+- `api_server.py` — FastAPI server chính
+- `project/` — Chứa các script automation
+- `example_code.py` — Template để tạo script mới
+- `tutorial.txt` — Chuẩn code cho AI
 
-## 🚀 Cách sử dụng
+## 🚀 Khởi chạy Server
 
-### 1. Khởi chạy Server
-Mở terminal tại thư mục dự án và chạy:
 ```bash
 python api_server.py
 ```
-Server sẽ mặc định chạy tại: `http://127.0.0.1:8000`
+Server chạy tại: `http://127.0.0.1:8000`
 
-### 2. Cách gọi API từ Phần mềm bên thứ 3 (GET Method)
+## 📡 Cách gọi API
 
-Đây là cách đơn giản nhất để tích hợp. Bạn chỉ cần gọi URL sau:
-
-**Cấu trúc:** `http://127.0.0.1:8000/execute/{tên_script}?profile_id={ID_PROFILE}`
+### GET (thông thường)
+```
+http://127.0.0.1:8000/execute/{tên_script}?port={debug_port}
+```
 
 **Ví dụ:**
-`http://127.0.0.1:8000/execute/twitter?profile_id=7c089289-cf25-4ca7-bba6-300266979f00`
+```
+http://127.0.0.1:8000/execute/twitter?port=9222
+http://127.0.0.1:8000/execute/import_key_okx?port=9222&mnemonic=word1+word2&password=abc
+```
 
-*   `twitter`: Là tên file `twitter.py` trong thư mục `project/`.
-*   `profile_id`: Là ID cố định của profile trong GPM Login.
+### POST (dữ liệu nhạy cảm)
+```
+POST http://127.0.0.1:8000/execute/{tên_script}
+Body: { "remote_debugging_address": "127.0.0.1:9222" }
+```
 
-### 🧠 Luồng xử lý tự động
-1. Server nhận được `profile_id`.
-2. Server tự hỏi GPM xem profile đó đang chạy ở cổng (port) nào.
-3. Server tự tìm đúng `gpmdriver.exe` để điều khiển trình duyệt đó.
-4. Server thực thi kịch bản (ví dụ: quét tab, mở Twitter, kiểm tra login).
+## 🧠 Luồng xử lý
+1. Lấy **debug port** từ antidetect browser của bạn (GPM, AdsPower, Multilogin...)
+2. Gọi API với port đó
+3. Server kết nối vào browser và chạy script tự động
 
-## 📝 Phát triển kịch bản mới
-Để tạo kịch bản mới, hãy tạo một file `.py` trong thư mục `project/` và định nghĩa hàm `run(profile_data)` tương tự như file `twitter.py`.
+## 📝 Thêm script mới
+Tạo file `.py` trong thư mục `project/` với hàm `run(profile_data)`.
+Xem `example_code.py` và `tutorial.txt` để biết cấu trúc chuẩn.

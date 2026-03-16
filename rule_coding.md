@@ -1,0 +1,3 @@
+- đợi element hiển thị hoặc click được khoanh vùng bằng ô vuông màu đỏ
+- xác định ví trí bằng xpath hoặc css selector hoặc bất cứ thứ gì không thay đổi, không xác định bằng tọa độ, hình ảnh và text
+- Nếu không tìm thấy element, chụp màn hình, copy html lại và check xem lỗi do đâu, khi xác định được lỗi và sữa chữa thành công thì xóa các file chụp màn hình và html lỗi

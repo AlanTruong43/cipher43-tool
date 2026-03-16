@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/cipher/Documents/cipher43-tool/**)",
+      "Bash(del api_client.py)",
+      "Bash(rmdir /s /q api)"
+    ],
+    "additionalDirectories": [
+      "d:\\code folder\\cipher43-tool"
+    ]
+  }
+}
