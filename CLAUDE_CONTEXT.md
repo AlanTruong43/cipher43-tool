@@ -63,8 +63,10 @@
 | API Server | **FastAPI** + Uvicorn |
 | Automation engine | **DrissionPage 4.0+** |
 | Data Validation | Pydantic |
+| Excel reader | **openpyxl** |
+| HTTP client | **requests** |
 | Python | 3.11+ |
-| Browser port lấy | Chrome Extension (Manifest v3)
+| Browser port | Chrome Extension (Manifest v3) + Antidetect adapter API
 
 ---
 
@@ -73,18 +75,27 @@
 ```
 cipher43-tool/
 ├── api_server.py              # FastAPI server chính — nhận & dispatch request
+├── config.json                # Cấu hình local: browser type, be_url
+├── excel_reader.py            # Đọc file Excel → list profile_data dict
+├── git_updater.py             # git pull script mới nhất trước khi chạy
 ├── requirements.txt           # Dependencies
 ├── tutorial.txt               # Quy trình & chuẩn code cho AI viết script
 ├── rule_coding.md             # Quy tắc code
 ├── README.md                  # Hướng dẫn sử dụng
 │
-├── extension/                 # Chrome Extension — lấy debug port
-│   ├── manifest.json
-│   ├── background.js          # Port scanner
-│   ├── popup.html             # Popup hiển thị port
+├── adapters/                  # Adapter cho từng antidetect browser
+│   ├── base.py                # Abstract class: list_profiles, get_debug_address
+│   ├── gpm.py                 # GPM Login adapter
+│   └── gologin.py             # GoLogin adapter
+│
+├── extension/                 # Chrome Extension — cầu nối website ↔ tool
+│   ├── manifest.json          # Permissions: tabs, storage
+│   ├── background.js          # Port scanner (legacy fallback)
+│   ├── popup.html             # UI: nhập token, chọn Excel, trigger run
+│   ├── popup.js               # Logic: gọi /tool-info, /run
 │   └── icons/                 # Icons
 │
-└── project/                   # Các script automation
+└── project/                   # Các script automation (dev viết)
     ├── twitter.py             # Tự động hóa Twitter/X
     ├── import_key_okx.py      # Import seed phrase vào ví OKX
     └── import_key_okx_stealth.py  # Bản stealth OKX dùng Raw CDP
@@ -94,35 +105,39 @@ cipher43-tool/
 
 ## 6. ⚡ Cách hoạt động chi tiết
 
-### Luồng xử lý một request:
-1. User (hoặc antidetect browser) gọi: `GET http://127.0.0.1:8000/execute/twitter?port=9222`
-2. Server kiểm tra port có sống không (socket check)
-3. Server load module `project/twitter.py` bằng `importlib.util`
-4. Chạy `twitter.run(profile_data)` trong **BackgroundTask** (non-blocking)
-5. Trả về response ngay lập tức
+### Luồng xử lý (Token flow — luồng chính):
+1. User lấy Tool Token từ cipher43lab.com
+2. Paste vào Extension → Extension gọi `GET /tool-info?token=xxx`
+3. Server validate token với BE, trả về `toolName`, `scriptName`, danh sách profiles
+4. User chọn file Excel → Click Run → Extension gọi `POST /run`
+5. Tool validate token, git pull code mới nhất, đọc Excel
+6. Với mỗi hàng: lấy debug port qua antidetect adapter → chạy script
+
+### Luồng legacy (trực tiếp bằng port):
+1. User lấy debug port từ extension hoặc antidetect UI
+2. Gọi `GET /execute/{script}?port=9222`
+3. Server kết nối browser và chạy script
 
 ### Cấu trúc `profile_data` dict truyền vào script:
 ```python
 {
     "remote_debugging_address": "127.0.0.1:9222",  # luôn có
-    "profile_id": "abc-123",                        # optional, từ query param
-    "profile_name": "My Profile",                   # optional, từ query param
-    # + bất kỳ extra param nào từ query string
-    "mnemonic": "word1 word2 ...",                  # nếu có
-    "password": "xxx"                               # nếu có
+    "profile_name": "Account_01",                   # từ Excel
+    "username": "email@gmail.com",                  # từ Excel (nếu có)
+    "password": "xxx",                              # từ Excel (nếu có)
+    "totp_seed": "JBSWY3...",                       # từ Excel (nếu có)
+    # + mọi cột khác trong Excel được forward vào đây
 }
 ```
 
-### Cách gọi API:
+### Endpoints:
 ```
-# GET — dùng cho tác vụ thông thường
-GET /execute/{script}?port=9222
-GET /execute/{script}?port=9222&host=127.0.0.1
-GET /execute/{script}?port=9222&profile_id=abc&profile_name=Test
-
-# POST — dùng khi cần truyền dữ liệu nhạy cảm (mnemonic, password)
-POST /execute/{script}
-Body: { "remote_debugging_address": "127.0.0.1:9222", "profile_id": "abc" }
+GET  /tool-info?token={tool_token}   — validate + trả về tool info + profiles
+POST /run                            — đọc Excel + chạy script cho nhiều profile
+GET  /execute/{script}?port={port}   — legacy: chạy script với port cụ thể
+POST /execute/{script}               — legacy: chạy script với body JSON
+GET  /scripts                        — liệt kê scripts có trong project/
+GET  /profiles                       — liệt kê profiles từ antidetect
 ```
 
 ---

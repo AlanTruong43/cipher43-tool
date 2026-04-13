@@ -6,13 +6,45 @@ Tương thích với **mọi antidetect browser** hỗ trợ Chrome Remote Debug
 ## 🛠 Yêu cầu hệ thống
 - Python 3.11+
 - `pip install -r requirements.txt`
-- Browser đang chạy với Remote Debugging được bật
+- File `config.json` (xem mục cấu hình)
 
 ## 📁 Cấu trúc
-- `api_server.py` — FastAPI server chính
-- `project/` — Chứa các script automation
-- `example_code.py` — Template để tạo script mới
-- `tutorial.txt` — Chuẩn code cho AI
+
+```
+cipher43-tool/
+├── api_server.py        — FastAPI server chính
+├── config.json          — Cấu hình local (browser type, BE URL)
+├── excel_reader.py      — Đọc file Excel thành list profile_data
+├── git_updater.py       — git pull script mới nhất trước khi chạy
+│
+├── adapters/            — Adapter cho từng antidetect browser
+│   ├── base.py          — Abstract class
+│   ├── gpm.py           — GPM Login
+│   └── gologin.py       — GoLogin
+│
+├── project/             — Script automation (dev viết)
+│   ├── twitter.py
+│   └── import_key_okx.py
+│
+└── extension/           — Chrome Extension lấy debug port
+    ├── manifest.json
+    ├── background.js
+    ├── popup.html
+    └── popup.js
+```
+
+## ⚙️ Cấu hình
+
+Tạo file `config.json` tại thư mục gốc:
+
+```json
+{
+  "browser": "gpm",
+  "be_url": "https://cipher43lab.com"
+}
+```
+
+`browser` hỗ trợ: `gpm`, `gologin` (thêm dần)
 
 ## 🚀 Khởi chạy Server
 
@@ -21,30 +53,45 @@ python api_server.py
 ```
 Server chạy tại: `http://127.0.0.1:8000`
 
-## 📡 Cách gọi API
+## 📡 API Endpoints
 
-### GET (thông thường)
-```
-http://127.0.0.1:8000/execute/{tên_script}?port={debug_port}
-```
+### `GET /tool-info?token={tool_token}`
+Validate token + trả về tên tool, scriptName, danh sách profiles.
+Extension gọi sau khi user paste token.
 
-**Ví dụ:**
-```
-http://127.0.0.1:8000/execute/twitter?port=9222
-http://127.0.0.1:8000/execute/import_key_okx?port=9222&mnemonic=word1+word2&password=abc
-```
-
-### POST (dữ liệu nhạy cảm)
-```
-POST http://127.0.0.1:8000/execute/{tên_script}
-Body: { "remote_debugging_address": "127.0.0.1:9222" }
+```json
+{
+  "toolName": "Twitter Checker",
+  "scriptName": "twitter",
+  "profiles": [{ "id": "abc", "name": "Account_01" }]
+}
 ```
 
-## 🧠 Luồng xử lý
-1. Lấy **debug port** từ antidetect browser của bạn (GPM, AdsPower, Multilogin...)
-2. Gọi API với port đó
-3. Server kết nối vào browser và chạy script tự động
+### `POST /run`
+Đọc Excel, lấy debug port từng profile, chạy script song song.
+
+```json
+{
+  "tool_token": "c43_xxx",
+  "excel_path": "C:/Users/abc/accounts.xlsx",
+  "extra_params": {}
+}
+```
+
+### `GET /execute/{script}?port={debug_port}` *(legacy)*
+Chạy script trực tiếp với port cụ thể (không cần token).
+
+### `GET /scripts`
+Liệt kê scripts có trong `project/`.
+
+## 🧠 Luồng xử lý (Token flow)
+
+1. User lấy **Tool Token** từ cipher43lab.com
+2. Paste vào Extension → Extension gọi `/tool-info` để validate
+3. Extension đọc file Excel từ máy user
+4. Click Run → Extension gọi `/run` với token + đường dẫn Excel
+5. Tool xác thực token với BE, đọc Excel, lấy debug port từng profile → chạy script
 
 ## 📝 Thêm script mới
-Tạo file `.py` trong thư mục `project/` với hàm `run(profile_data)`.
-Xem `example_code.py` và `tutorial.txt` để biết cấu trúc chuẩn.
+Tạo file `.py` trong `project/` với hàm `run(profile_data)`.
+Xem `tutorial.txt` để biết cấu trúc chuẩn.
