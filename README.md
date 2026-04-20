@@ -20,7 +20,8 @@ cipher43-tool/
 ├── adapters/            — Adapter cho từng antidetect browser
 │   ├── base.py          — Abstract class
 │   ├── gpm.py           — GPM Login
-│   └── gologin.py       — GoLogin
+│   ├── gologin.py       — GoLogin
+│   └── genlogin.py      — Genlogin
 │
 ├── project/             — Script automation (dev viết)
 │   ├── twitter.py
@@ -37,6 +38,7 @@ cipher43-tool/
 
 Tạo file `config.json` tại thư mục gốc:
 
+### Cho GPM Login
 ```json
 {
   "browser": "gpm",
@@ -44,7 +46,25 @@ Tạo file `config.json` tại thư mục gốc:
 }
 ```
 
-`browser` hỗ trợ: `gpm`, `gologin` (thêm dần)
+### Cho GoLogin (Orbital Agent)
+```json
+{
+  "browser": "gologin",
+  "be_url": "https://cipher43lab.com"
+}
+```
+
+### Cho Genlogin
+```json
+{
+  "browser": "genlogin",
+  "genlogin_username": "your_email@gmail.com",
+  "genlogin_password": "your_password",
+  "be_url": "https://cipher43lab.com"
+}
+```
+
+**Hỗ trợ browsers**: `gpm`, `gologin`, `genlogin`
 
 ## 🚀 Khởi chạy Server
 

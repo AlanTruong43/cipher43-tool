@@ -207,6 +207,7 @@ result = page.run_js("return document.title;")
 - ✅ **Browser-agnostic** — không phụ thuộc antidetect browser cụ thể nào
 - ✅ Chrome Extension để lấy debug port
 - ✅ API endpoint: `http://127.0.0.1:8000/execute/{script}?port={port}`
+- ✅ Multi-antidetect adapters: GPM Login, GoLogin, Genlogin
 - 📋 Cần viết thêm scripts cho các airdrop project mới
 
 ---

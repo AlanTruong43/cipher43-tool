@@ -143,7 +143,7 @@ async def list_profiles(token: str = Query(..., description="Tool token")):
     """Trả về danh sách profiles từ antidetect browser đang cấu hình."""
     config = load_config()
     verify_token(token, config["be_url"])
-    adapter = get_adapter(config["browser"])
+    adapter = get_adapter(config["browser"], config)
     try:
         profiles = adapter.list_profiles()
     except Exception as e:
@@ -156,7 +156,7 @@ async def tool_info(token: str = Query(..., description="Tool token")):
     """Validate token + trả về tool info + danh sách profiles. Extension gọi sau khi user paste token."""
     config = load_config()
     payload = verify_token(token, config["be_url"])
-    adapter = get_adapter(config["browser"])
+    adapter = get_adapter(config["browser"], config)
     try:
         profiles = adapter.list_profiles()
     except Exception as e:
@@ -197,7 +197,7 @@ async def run_from_excel(body: RunRequest, background_tasks: BackgroundTasks):
     if not rows:
         raise HTTPException(status_code=400, detail="File Excel không có dữ liệu")
 
-    adapter = get_adapter(config["browser"])
+    adapter = get_adapter(config["browser"], config)
     queued = []
     errors = []
 
