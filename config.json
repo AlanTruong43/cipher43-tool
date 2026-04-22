@@ -1,7 +1,7 @@
 {
     "browser": "genlogin",
     "be_url": "https://cipher43lab.com",
-    "local_tool_url": "https://YOUR_NGROK_URL",
+    "local_tool_url": "https://violeta-lamprophonic-venially.ngrok-free.dev",
     "tool_token": "",
     "genlogin_username": "your_email@gmail.com",
     "genlogin_password": "your_password"
