@@ -35,12 +35,14 @@ Tạo file `config.json`:
   "be_url": "https://cipher-43-lab-be-production.up.railway.app",
   "local_tool_url": "https://your-ngrok-url.ngrok-free.app",
   "tool_token": "c43_xxx",
+  "user_email": "your_gmail@gmail.com",
   "genlogin_username": "your_email@gmail.com",
   "genlogin_password": "your_password"
 }
 ```
 
 - `tool_token` — lấy từ BE dashboard, xác định script nào sẽ chạy
+- `user_email` — gmail đã đăng ký tài khoản trên web, dùng để xác minh quyền truy cập
 - `browser` — hiện hỗ trợ: `genlogin`, `gologin`, `gpm`
 
 ## Khởi chạy

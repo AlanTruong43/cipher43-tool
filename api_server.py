@@ -25,17 +25,18 @@ def load_config() -> dict:
     return json.loads(CONFIG_PATH.read_text(encoding="utf-8-sig"))
 
 
-def verify_token(tool_token: str, be_url: str) -> dict:
+def verify_token(tool_token: str, be_url: str, user_email: str = "") -> dict:
     try:
         res = http_requests.post(
             f"{be_url}/api/tools/verify-token",
-            json={"token": tool_token},
+            json={"token": tool_token, "user_email": user_email},
             timeout=10,
         )
     except Exception as e:
         raise RuntimeError(f"Không thể kết nối BE: {e}")
     if res.status_code != 200:
-        raise RuntimeError("Token không hợp lệ hoặc đã hết hạn")
+        data = res.json()
+        raise RuntimeError(data.get("message", "Token không hợp lệ hoặc đã hết hạn"))
     return res.json()
 
 
@@ -185,7 +186,7 @@ async def genlogin_callback(request: Request, background_tasks: BackgroundTasks)
             logger.warning("Callback: tool_token chưa cấu hình trong config.json")
             return {"status": "no_token", "profiles": [n for n, _ in to_run]}
 
-        payload = verify_token(tool_token, config["be_url"])
+        payload = verify_token(tool_token, config["be_url"], config.get("user_email", ""))
         script_name = payload.get("scriptName", "")
         if not script_name:
             logger.warning("Callback: token không có scriptName")
