@@ -32,22 +32,34 @@ class GenloginAdapter(AntidetectAdapter):
         return {"Authorization": f"Bearer {self.token}"}
 
     def list_profiles(self) -> list[dict]:
-        res = requests.get(
-            f"{BASE}/backend/profiles",
-            params={"offset": 0, "limit": 100, "sort_by": "id", "order": "desc"},
-            headers=self._headers(),
-            timeout=10,
-        )
-        res.raise_for_status()
-        data = res.json()
-        profiles = data.get("data", {}).get("items") or data.get("data", {}).get("profiles") or data.get("data", [])
+        all_profiles = []
+        offset = 0
+        limit = 100
+        while True:
+            res = requests.get(
+                f"{BASE}/backend/profiles",
+                params={"offset": offset, "limit": limit, "sort_by": "id", "order": "desc"},
+                headers=self._headers(),
+                timeout=10,
+            )
+            res.raise_for_status()
+            data = res.json()
+            items = data.get("data", {}).get("items") or data.get("data", {}).get("profiles") or []
+            if not items:
+                break
+            all_profiles.extend(items)
+            pagination = data.get("data", {}).get("pagination", {})
+            total = pagination.get("total_items", 0)
+            offset += limit
+            if offset >= total:
+                break
         return [
             {
                 "id": str(p.get("id", "")),
                 "name": p.get("profile_data", {}).get("name") or p.get("name", ""),
                 "status": "running" if p.get("status") == 2 or p.get("active") or p.get("isRunning") else "stopped",
             }
-            for p in profiles
+            for p in all_profiles
         ]
 
     def get_debug_address(self, profile_name: str) -> str:
@@ -57,7 +69,16 @@ class GenloginAdapter(AntidetectAdapter):
 
         profile_id = profile["id"]
 
-        # Start profile
+        # Nếu profile đang chạy (status=running), stop trước để lấy debug port mới
+        if profile.get("status") == "running":
+            requests.put(
+                f"{BASE}/backend/profiles/{profile_id}/stop",
+                headers=self._headers(),
+                timeout=15,
+            )
+            import time; time.sleep(2)
+
+        # Start profile — Genlogin trả về data.port khi start thành công
         res = requests.put(
             f"{BASE}/backend/profiles/{profile_id}/start",
             headers=self._headers(),
@@ -66,7 +87,6 @@ class GenloginAdapter(AntidetectAdapter):
         res.raise_for_status()
         data = res.json()
 
-        # Tìm debug port từ response — Genlogin trả về data.port (string)
         debug_data = data.get("data") if isinstance(data.get("data"), dict) else {}
         debug_port = debug_data.get("port") or debug_data.get("debugPort")
         debug_address = debug_data.get("remoteDebuggingAddress") or debug_data.get("debugAddress")
