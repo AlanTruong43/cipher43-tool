@@ -1,19 +1,19 @@
 # Cipher 43 Tool — Automation API
 
-API server tự động hóa thao tác trình duyệt. Tích hợp với Genlogin qua **Call API callback** — mỗi khi profile mở xong, Genlogin tự gọi api_server và script chạy ngay, không cần thao tác thủ công.
+FastAPI server chạy trên **máy Windows local**, tự động chạy script automation khi profile Antidetect browser mở. Tích hợp qua tính năng **Call API** có sẵn trong antidetect browser — không cần Extension.
 
 ## Yêu cầu
 
 - Python 3.11+
 - `pip install -r requirements.txt`
-- Genlogin đang chạy tại `http://127.0.0.1:55550`
+- Antidetect browser đang chạy (Genlogin tại `http://127.0.0.1:55550`)
 
 ## Cấu trúc
 
 ```
 cipher43-tool/
 ├── api_server.py        — FastAPI server chính
-├── config.json          — Cấu hình local
+├── config.json          — Cấu hình local (không commit)
 ├── adapters/            — Adapter cho từng antidetect browser
 │   ├── base.py
 │   ├── genlogin.py
@@ -27,13 +27,12 @@ cipher43-tool/
 
 ## Cấu hình
 
-Tạo file `config.json`:
+Tạo file `config.json` (không commit vào git):
 
 ```json
 {
   "browser": "genlogin",
   "be_url": "https://cipher-43-lab-be-production.up.railway.app",
-  "local_tool_url": "https://your-ngrok-url.ngrok-free.app",
   "tool_token": "c43_xxx",
   "user_email": "your_gmail@gmail.com",
   "genlogin_username": "your_email@gmail.com",
@@ -41,7 +40,7 @@ Tạo file `config.json`:
 }
 ```
 
-- `tool_token` — lấy từ BE dashboard, xác định script nào sẽ chạy
+- `tool_token` — lấy từ web dashboard (nút **Lấy Token** trong trang Tool), xác định script nào sẽ chạy
 - `user_email` — gmail đã đăng ký tài khoản trên web, dùng để xác minh quyền truy cập
 - `browser` — hiện hỗ trợ: `genlogin`, `gologin`, `gpm`
 
@@ -56,26 +55,28 @@ Server chạy tại `http://127.0.0.1:8000`.
 ## Flow hoạt động
 
 ```
-Mở profile trong Genlogin
+User mở profile trong Antidetect browser
         ↓
-Genlogin tự gọi POST http://127.0.0.1:8000/callback/profile-ready
+Browser tự gọi POST http://127.0.0.1:8000/callback/profile-ready
         ↓
-api_server lấy debug port từ Genlogin /running
+api_server query /running → lấy debug port của profile
         ↓
-Xác thực tool_token → lấy scriptName từ BE
+Xác thực tool_token + user_email → lấy scriptName từ BE
         ↓
 Chạy project/{scriptName}.py với profile đó
 ```
 
-## Cài đặt Genlogin Call API
+Nếu browser không gửi data trong callback (payload rỗng), api_server tự fallback query endpoint `/running` để lấy tất cả profiles đang mở.
 
-Trong mỗi profile settings của Genlogin → **Call API** → điền:
+## Cài đặt Call API trong Antidetect browser
+
+Vào settings từng profile → **Call API** → điền:
 
 ```
 http://127.0.0.1:8000/callback/profile-ready
 ```
 
-Genlogin sẽ tự POST đến đây sau khi profile mở xong.
+Browser sẽ tự POST đến đây sau khi profile mở xong.
 
 ## API Endpoints
 
@@ -83,11 +84,11 @@ Genlogin sẽ tự POST đến đây sau khi profile mở xong.
 |---|---|
 | `GET /` | Kiểm tra server online |
 | `GET /scripts` | Liệt kê scripts trong `project/` |
-| `GET,POST /callback/profile-ready` | Genlogin gọi sau khi profile mở |
+| `GET,POST /callback/profile-ready` | Browser gọi sau khi profile mở |
 
 ## Thêm script mới
 
-Tạo file `.py` trong `project/` với hàm `run(profile_data)`:
+1. Tạo file `.py` trong `project/` với hàm `run(profile_data)`:
 
 ```python
 def run(profile_data):
@@ -96,4 +97,18 @@ def run(profile_data):
     # ... thao tác với browser tại debug_address
 ```
 
-Sau đó cập nhật `scriptName` trong BE dashboard để trỏ đến tên file mới.
+2. Vào web dashboard → Admin → Tool → thêm tên file (không có `.py`) vào field **scriptNames**
+
+3. User tạo lại token trên web để chọn script mới
+
+## Chạy persistent trên Windows (qua SSH)
+
+Server được khởi chạy qua Windows Task Scheduler để giữ process sau khi đóng SSH:
+
+```
+Task name: cipher43-tool
+Location:  C:\Users\admin\Desktop\cipher43-tool\
+Bat file:  start_api_server.bat
+```
+
+Để restart: `schtasks /run /tn cipher43-tool`
