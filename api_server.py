@@ -29,7 +29,7 @@ EXCLUDE_SCRIPTS = {"selenium_best_practices"}
 def load_config() -> dict:
     if not CONFIG_PATH.exists():
         raise RuntimeError("config.json không tồn tại. Vui lòng tạo file config.json.")
-    return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    return json.loads(CONFIG_PATH.read_text(encoding="utf-8-sig"))
 
 
 def verify_token(tool_token: str, be_url: str) -> dict:
@@ -278,4 +278,4 @@ async def execute_post(
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
