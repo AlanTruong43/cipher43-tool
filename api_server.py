@@ -133,7 +133,7 @@ async def root():
     return {"status": "online"}
 
 
-@app.post("/callback/profile-ready")
+@app.api_route("/callback/profile-ready", methods=["GET", "POST"])
 async def genlogin_callback(request: Request):
     """
     Genlogin gọi endpoint này sau khi profile mở xong (cấu hình trong profile settings → Call API).
