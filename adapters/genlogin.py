@@ -13,10 +13,8 @@ class GenloginAdapter(AntidetectAdapter):
             self._authenticate()
 
     def _authenticate(self):
-        """Đăng nhập genlogin để lấy access token"""
         if not self.username or not self.password:
             raise ValueError("Genlogin username + password không được cấu hình")
-
         res = requests.post(
             f"{BASE}/backend/auth/login",
             json={"username": self.username, "password": self.password},
@@ -61,58 +59,3 @@ class GenloginAdapter(AntidetectAdapter):
             }
             for p in all_profiles
         ]
-
-    def get_debug_address(self, profile_name: str, cache: dict = None) -> str:
-        # Priority 1: in-memory cache populated by Genlogin callback
-        if cache is not None:
-            cached = cache.get(profile_name.strip().lower())
-            if cached:
-                return cached
-
-        # Priority 2: check already-running profiles (no stop/start)
-        try:
-            res = requests.get(
-                f"{BASE}/backend/profiles/running",
-                headers=self._headers(),
-                timeout=10,
-            )
-            res.raise_for_status()
-            running = res.json().get("data", [])
-            for p in running:
-                if p.get("name", "").strip().lower() == profile_name.strip().lower():
-                    port = p.get("port")
-                    if port:
-                        return f"127.0.0.1:{port}"
-        except Exception:
-            pass
-
-        # Priority 3: profile not open yet — start it
-        profile = self._find_profile(profile_name)
-        if not profile:
-            raise ValueError(f"Genlogin: Profile '{profile_name}' không tìm thấy")
-
-        res = requests.put(
-            f"{BASE}/backend/profiles/{profile['id']}/start",
-            headers=self._headers(),
-            timeout=30,
-        )
-        res.raise_for_status()
-        data = res.json()
-
-        debug_data = data.get("data") if isinstance(data.get("data"), dict) else {}
-        debug_port = debug_data.get("port") or debug_data.get("debugPort")
-        debug_address = debug_data.get("remoteDebuggingAddress") or debug_data.get("debugAddress")
-
-        if debug_address:
-            return debug_address
-        elif debug_port:
-            return f"127.0.0.1:{debug_port}"
-
-        raise RuntimeError(f"Genlogin: Không lấy được debug address cho '{profile_name}'")
-
-    def _find_profile(self, name: str) -> dict | None:
-        profiles = self.list_profiles()
-        for p in profiles:
-            if p["name"].strip().lower() == name.strip().lower():
-                return p
-        return None

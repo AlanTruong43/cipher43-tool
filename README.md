@@ -1,117 +1,97 @@
-# 🚀 Cipher 43 Tool — Automation API
+# Cipher 43 Tool — Automation API
 
-API server tự động hóa thao tác trình duyệt cho airdrop farming.
-Tương thích với **mọi antidetect browser** hỗ trợ Chrome Remote Debugging Protocol.
+API server tự động hóa thao tác trình duyệt. Tích hợp với Genlogin qua **Call API callback** — mỗi khi profile mở xong, Genlogin tự gọi api_server và script chạy ngay, không cần thao tác thủ công.
 
-## 🛠 Yêu cầu hệ thống
+## Yêu cầu
+
 - Python 3.11+
 - `pip install -r requirements.txt`
-- File `config.json` (xem mục cấu hình)
+- Genlogin đang chạy tại `http://127.0.0.1:55550`
 
-## 📁 Cấu trúc
+## Cấu trúc
 
 ```
 cipher43-tool/
 ├── api_server.py        — FastAPI server chính
-├── config.json          — Cấu hình local (browser type, BE URL)
-├── excel_reader.py      — Đọc file Excel thành list profile_data
-├── git_updater.py       — git pull script mới nhất trước khi chạy
-│
+├── config.json          — Cấu hình local
 ├── adapters/            — Adapter cho từng antidetect browser
-│   ├── base.py          — Abstract class
-│   ├── gpm.py           — GPM Login
-│   ├── gologin.py       — GoLogin
-│   └── genlogin.py      — Genlogin
-│
-├── project/             — Script automation (dev viết)
-│   ├── twitter.py
-│   └── import_key_okx.py
-│
-└── extension/           — Chrome Extension lấy debug port
-    ├── manifest.json
-    ├── background.js
-    ├── popup.html
-    └── popup.js
+│   ├── base.py
+│   ├── genlogin.py
+│   ├── gologin.py
+│   └── gpm.py
+└── project/             — Script automation
+    ├── encoding_fix.py  — Windows UTF-8 fix (import tự động)
+    ├── twitter.py
+    └── ...              — Thêm script mới tại đây
 ```
 
-## ⚙️ Cấu hình
+## Cấu hình
 
-Tạo file `config.json` tại thư mục gốc:
+Tạo file `config.json`:
 
-### Cho GPM Login
-```json
-{
-  "browser": "gpm",
-  "be_url": "https://cipher43lab.com"
-}
-```
-
-### Cho GoLogin (Orbital Agent)
-```json
-{
-  "browser": "gologin",
-  "be_url": "https://cipher43lab.com"
-}
-```
-
-### Cho Genlogin
 ```json
 {
   "browser": "genlogin",
+  "be_url": "https://cipher-43-lab-be-production.up.railway.app",
+  "local_tool_url": "https://your-ngrok-url.ngrok-free.app",
+  "tool_token": "c43_xxx",
   "genlogin_username": "your_email@gmail.com",
-  "genlogin_password": "your_password",
-  "be_url": "https://cipher43lab.com"
+  "genlogin_password": "your_password"
 }
 ```
 
-**Hỗ trợ browsers**: `gpm`, `gologin`, `genlogin`
+- `tool_token` — lấy từ BE dashboard, xác định script nào sẽ chạy
+- `browser` — hiện hỗ trợ: `genlogin`, `gologin`, `gpm`
 
-## 🚀 Khởi chạy Server
+## Khởi chạy
 
 ```bash
 python api_server.py
 ```
-Server chạy tại: `http://127.0.0.1:8000`
 
-## 📡 API Endpoints
+Server chạy tại `http://127.0.0.1:8000`.
 
-### `GET /tool-info?token={tool_token}`
-Validate token + trả về tên tool, scriptName, danh sách profiles.
-Extension gọi sau khi user paste token.
+## Flow hoạt động
 
-```json
-{
-  "toolName": "Twitter Checker",
-  "scriptName": "twitter",
-  "profiles": [{ "id": "abc", "name": "Account_01" }]
-}
+```
+Mở profile trong Genlogin
+        ↓
+Genlogin tự gọi POST http://127.0.0.1:8000/callback/profile-ready
+        ↓
+api_server lấy debug port từ Genlogin /running
+        ↓
+Xác thực tool_token → lấy scriptName từ BE
+        ↓
+Chạy project/{scriptName}.py với profile đó
 ```
 
-### `POST /run`
-Đọc Excel, lấy debug port từng profile, chạy script song song.
+## Cài đặt Genlogin Call API
 
-```json
-{
-  "tool_token": "c43_xxx",
-  "excel_path": "C:/Users/abc/accounts.xlsx",
-  "extra_params": {}
-}
+Trong mỗi profile settings của Genlogin → **Call API** → điền:
+
+```
+http://127.0.0.1:8000/callback/profile-ready
 ```
 
-### `GET /execute/{script}?port={debug_port}` *(legacy)*
-Chạy script trực tiếp với port cụ thể (không cần token).
+Genlogin sẽ tự POST đến đây sau khi profile mở xong.
 
-### `GET /scripts`
-Liệt kê scripts có trong `project/`.
+## API Endpoints
 
-## 🧠 Luồng xử lý (Token flow)
+| Endpoint | Mô tả |
+|---|---|
+| `GET /` | Kiểm tra server online |
+| `GET /scripts` | Liệt kê scripts trong `project/` |
+| `GET,POST /callback/profile-ready` | Genlogin gọi sau khi profile mở |
 
-1. User lấy **Tool Token** từ cipher43lab.com
-2. Paste vào Extension → Extension gọi `/tool-info` để validate
-3. Extension đọc file Excel từ máy user
-4. Click Run → Extension gọi `/run` với token + đường dẫn Excel
-5. Tool xác thực token với BE, đọc Excel, lấy debug port từng profile → chạy script
+## Thêm script mới
 
-## 📝 Thêm script mới
-Tạo file `.py` trong `project/` với hàm `run(profile_data)`.
-Xem `tutorial.txt` để biết cấu trúc chuẩn.
+Tạo file `.py` trong `project/` với hàm `run(profile_data)`:
+
+```python
+def run(profile_data):
+    debug_address = profile_data["remote_debugging_address"]  # "127.0.0.1:PORT"
+    profile_name  = profile_data["profile_name"]
+    # ... thao tác với browser tại debug_address
+```
+
+Sau đó cập nhật `scriptName` trong BE dashboard để trỏ đến tên file mới.
