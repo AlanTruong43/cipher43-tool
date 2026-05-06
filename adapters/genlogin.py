@@ -40,12 +40,12 @@ class GenloginAdapter(AntidetectAdapter):
         )
         res.raise_for_status()
         data = res.json()
-        profiles = data.get("data", {}).get("profiles") or data.get("data", [])
+        profiles = data.get("data", {}).get("items") or data.get("data", {}).get("profiles") or data.get("data", [])
         return [
             {
                 "id": str(p.get("id", "")),
-                "name": p.get("name", ""),
-                "status": "running" if p.get("active") or p.get("isRunning") else "stopped",
+                "name": p.get("profile_data", {}).get("name") or p.get("name", ""),
+                "status": "running" if p.get("status") == 2 or p.get("active") or p.get("isRunning") else "stopped",
             }
             for p in profiles
         ]
@@ -66,9 +66,9 @@ class GenloginAdapter(AntidetectAdapter):
         res.raise_for_status()
         data = res.json()
 
-        # Tìm debug port từ response
-        debug_data = data.get("data", {})
-        debug_port = debug_data.get("debugPort") or debug_data.get("port")
+        # Tìm debug port từ response — Genlogin trả về data.port (string)
+        debug_data = data.get("data") if isinstance(data.get("data"), dict) else {}
+        debug_port = debug_data.get("port") or debug_data.get("debugPort")
         debug_address = debug_data.get("remoteDebuggingAddress") or debug_data.get("debugAddress")
 
         if debug_address:
