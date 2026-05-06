@@ -179,7 +179,32 @@ async def genlogin_callback(request: Request):
             logger.info(f"Callback (ws): profile '{profile_name}' → 127.0.0.1:{m.group(1)}")
             return {"status": "ok", "cached": key}
 
-    logger.warning(f"Callback nhận được nhưng thiếu name/port: {data}")
+    # Fallback: Genlogin didn't send profile data — query /running and cache all
+    try:
+        config = load_config()
+        adapter = get_adapter(config["browser"], config)
+        import requests as _req
+        token = adapter.token
+        res = _req.get(
+            "http://127.0.0.1:55550/backend/profiles/running",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=5,
+        )
+        running = res.json().get("data", [])
+        cached = []
+        for p in running:
+            pname = p.get("name", "").strip()
+            port = p.get("port")
+            if pname and port:
+                profile_debug_cache[pname.lower()] = f"127.0.0.1:{port}"
+                cached.append(pname)
+        if cached:
+            logger.info(f"Callback fallback: cached {len(cached)} running profiles")
+            return {"status": "ok", "cached_from_running": cached}
+    except Exception as e:
+        logger.warning(f"Callback fallback query failed: {e}")
+
+    logger.warning(f"Callback: no data and no running profiles found")
     return {"status": "ignored", "received": data}
 
 
