@@ -125,10 +125,12 @@ def run_automation_task(script_name: str, profile_data: dict):
         if hasattr(module, "run"):
             logger.info(f"Bắt đầu '{script_name}' tại {profile_data['remote_debugging_address']}")
             module.run(profile_data)
+            logger.info(f"Hoàn thành '{script_name}' tại {profile_data['remote_debugging_address']}")
         else:
             logger.error(f"Script '{script_name}.py' không có hàm run()")
 
     except Exception as e:
+        logger.error(f"Task '{script_name}' thất bại: {e}", exc_info=True)
         logger.error(f"Task '{script_name}' thất bại: {e}")
 
 
