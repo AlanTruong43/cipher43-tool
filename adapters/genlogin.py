@@ -62,25 +62,37 @@ class GenloginAdapter(AntidetectAdapter):
             for p in all_profiles
         ]
 
-    def get_debug_address(self, profile_name: str) -> str:
+    def get_debug_address(self, profile_name: str, cache: dict = None) -> str:
+        # Priority 1: in-memory cache populated by Genlogin callback
+        if cache is not None:
+            cached = cache.get(profile_name.strip().lower())
+            if cached:
+                return cached
+
+        # Priority 2: check already-running profiles (no stop/start)
+        try:
+            res = requests.get(
+                f"{BASE}/backend/profiles/running",
+                headers=self._headers(),
+                timeout=10,
+            )
+            res.raise_for_status()
+            running = res.json().get("data", [])
+            for p in running:
+                if p.get("name", "").strip().lower() == profile_name.strip().lower():
+                    port = p.get("port")
+                    if port:
+                        return f"127.0.0.1:{port}"
+        except Exception:
+            pass
+
+        # Priority 3: profile not open yet — start it
         profile = self._find_profile(profile_name)
         if not profile:
             raise ValueError(f"Genlogin: Profile '{profile_name}' không tìm thấy")
 
-        profile_id = profile["id"]
-
-        # Nếu profile đang chạy (status=running), stop trước để lấy debug port mới
-        if profile.get("status") == "running":
-            requests.put(
-                f"{BASE}/backend/profiles/{profile_id}/stop",
-                headers=self._headers(),
-                timeout=15,
-            )
-            import time; time.sleep(2)
-
-        # Start profile — Genlogin trả về data.port khi start thành công
         res = requests.put(
-            f"{BASE}/backend/profiles/{profile_id}/start",
+            f"{BASE}/backend/profiles/{profile['id']}/start",
             headers=self._headers(),
             timeout=30,
         )

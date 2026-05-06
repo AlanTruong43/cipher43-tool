@@ -49,6 +49,10 @@ def verify_token(tool_token: str, be_url: str) -> dict:
 
 app = FastAPI(title="Cipher 43 Tool — Automation API")
 
+# Cache debug addresses populated by Genlogin's built-in "Call API" callback
+# key: profile_name.strip().lower(), value: "127.0.0.1:{port}"
+profile_debug_cache: dict[str, str] = {}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -127,6 +131,62 @@ def run_automation_task(script_name: str, profile_data: dict):
 @app.get("/")
 async def root():
     return {"status": "online"}
+
+
+@app.post("/callback/profile-ready")
+async def genlogin_callback(request: Request):
+    """
+    Genlogin gọi endpoint này sau khi profile mở xong (cấu hình trong profile settings → Call API).
+    Payload có thể là JSON body hoặc query params — xử lý cả 2 dạng.
+    """
+    # Try JSON body first
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    # Merge query params as fallback
+    params = dict(request.query_params)
+    data = {**params, **body}
+
+    profile_name = (
+        data.get("name")
+        or data.get("profile_name")
+        or data.get("profileName")
+        or data.get("profile")
+    )
+    port = (
+        data.get("port")
+        or data.get("debug_port")
+        or data.get("debugPort")
+        or data.get("remotePort")
+    )
+    ws_endpoint = data.get("wsEndpoint") or data.get("ws_endpoint")
+
+    if profile_name and port:
+        key = str(profile_name).strip().lower()
+        profile_debug_cache[key] = f"127.0.0.1:{port}"
+        logger.info(f"Callback: profile '{profile_name}' → 127.0.0.1:{port}")
+        return {"status": "ok", "cached": key}
+
+    if ws_endpoint:
+        # wsEndpoint = "ws://127.0.0.1:PORT/..." — extract port from it
+        import re
+        m = re.search(r":(\d+)/", ws_endpoint)
+        if m and profile_name:
+            key = str(profile_name).strip().lower()
+            profile_debug_cache[key] = f"127.0.0.1:{m.group(1)}"
+            logger.info(f"Callback (ws): profile '{profile_name}' → 127.0.0.1:{m.group(1)}")
+            return {"status": "ok", "cached": key}
+
+    logger.warning(f"Callback nhận được nhưng thiếu name/port: {data}")
+    return {"status": "ignored", "received": data}
+
+
+@app.get("/callback/cache")
+async def get_callback_cache():
+    """Debug: xem danh sách profiles đã được cache qua callback."""
+    return {"cached_profiles": list(profile_debug_cache.keys()), "count": len(profile_debug_cache)}
 
 
 @app.get("/scripts")
@@ -208,7 +268,7 @@ async def run_from_excel(body: RunRequest, background_tasks: BackgroundTasks):
             continue
 
         try:
-            debug_address = adapter.get_debug_address(profile_name)
+            debug_address = adapter.get_debug_address(profile_name, cache=profile_debug_cache)
         except Exception as e:
             errors.append({"profile_name": profile_name, "error": str(e)})
             continue
