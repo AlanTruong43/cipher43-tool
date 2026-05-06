@@ -134,78 +134,104 @@ async def root():
 
 
 @app.api_route("/callback/profile-ready", methods=["GET", "POST"])
-async def genlogin_callback(request: Request):
+async def genlogin_callback(request: Request, background_tasks: BackgroundTasks):
     """
-    Genlogin gọi endpoint này sau khi profile mở xong (cấu hình trong profile settings → Call API).
-    Payload có thể là JSON body hoặc query params — xử lý cả 2 dạng.
+    Genlogin gọi endpoint này sau khi profile mở xong.
+    1. Lấy debug address của profile (từ payload hoặc query /running)
+    2. Cache vào profile_debug_cache
+    3. Tự chạy script từ tool_token trong config.json — không cần Extension
     """
-    # Try JSON body first
+    import re as _re
+    import requests as _req
+
+    # Parse payload
     try:
         body = await request.json()
     except Exception:
         body = {}
-
-    # Merge query params as fallback
     params = dict(request.query_params)
     data = {**params, **body}
 
     profile_name = (
-        data.get("name")
-        or data.get("profile_name")
-        or data.get("profileName")
-        or data.get("profile")
+        data.get("name") or data.get("profile_name")
+        or data.get("profileName") or data.get("profile")
     )
     port = (
-        data.get("port")
-        or data.get("debug_port")
-        or data.get("debugPort")
-        or data.get("remotePort")
+        data.get("port") or data.get("debug_port")
+        or data.get("debugPort") or data.get("remotePort")
     )
     ws_endpoint = data.get("wsEndpoint") or data.get("ws_endpoint")
 
+    # Extract port from wsEndpoint if needed
+    if not port and ws_endpoint:
+        m = _re.search(r":(\d+)/", ws_endpoint)
+        if m:
+            port = m.group(1)
+
+    # Build list of (profile_name, debug_address) to run
+    to_run = []
+
     if profile_name and port:
-        key = str(profile_name).strip().lower()
-        profile_debug_cache[key] = f"127.0.0.1:{port}"
-        logger.info(f"Callback: profile '{profile_name}' → 127.0.0.1:{port}")
-        return {"status": "ok", "cached": key}
+        debug_address = f"127.0.0.1:{port}"
+        profile_debug_cache[str(profile_name).strip().lower()] = debug_address
+        to_run.append((str(profile_name).strip(), debug_address))
+        logger.info(f"Callback: profile '{profile_name}' → {debug_address}")
+    else:
+        # Fallback: query Genlogin /running to get all open profiles
+        try:
+            config = load_config()
+            adapter = get_adapter(config["browser"], config)
+            res = _req.get(
+                "http://127.0.0.1:55550/backend/profiles/running",
+                headers={"Authorization": f"Bearer {adapter.token}"},
+                timeout=5,
+            )
+            for p in res.json().get("data", []):
+                pname = p.get("name", "").strip()
+                pport = p.get("port")
+                if pname and pport:
+                    addr = f"127.0.0.1:{pport}"
+                    profile_debug_cache[pname.lower()] = addr
+                    to_run.append((pname, addr))
+            logger.info(f"Callback fallback: found {len(to_run)} running profiles")
+        except Exception as e:
+            logger.warning(f"Callback fallback query failed: {e}")
 
-    if ws_endpoint:
-        # wsEndpoint = "ws://127.0.0.1:PORT/..." — extract port from it
-        import re
-        m = re.search(r":(\d+)/", ws_endpoint)
-        if m and profile_name:
-            key = str(profile_name).strip().lower()
-            profile_debug_cache[key] = f"127.0.0.1:{m.group(1)}"
-            logger.info(f"Callback (ws): profile '{profile_name}' → 127.0.0.1:{m.group(1)}")
-            return {"status": "ok", "cached": key}
+    if not to_run:
+        logger.warning(f"Callback: không tìm được profile nào để chạy. data={data}")
+        return {"status": "ignored", "received": data}
 
-    # Fallback: Genlogin didn't send profile data — query /running and cache all
+    # Lấy script_name từ tool_token trong config.json
     try:
         config = load_config()
-        adapter = get_adapter(config["browser"], config)
-        import requests as _req
-        token = adapter.token
-        res = _req.get(
-            "http://127.0.0.1:55550/backend/profiles/running",
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=5,
-        )
-        running = res.json().get("data", [])
-        cached = []
-        for p in running:
-            pname = p.get("name", "").strip()
-            port = p.get("port")
-            if pname and port:
-                profile_debug_cache[pname.lower()] = f"127.0.0.1:{port}"
-                cached.append(pname)
-        if cached:
-            logger.info(f"Callback fallback: cached {len(cached)} running profiles")
-            return {"status": "ok", "cached_from_running": cached}
-    except Exception as e:
-        logger.warning(f"Callback fallback query failed: {e}")
+        tool_token = config.get("tool_token", "")
+        if not tool_token:
+            logger.warning("Callback: tool_token chưa cấu hình trong config.json")
+            return {"status": "cached", "profiles": [n for n, _ in to_run], "script": None}
 
-    logger.warning(f"Callback: no data and no running profiles found")
-    return {"status": "ignored", "received": data}
+        payload = verify_token(tool_token, config["be_url"])
+        script_name = payload.get("scriptName", "")
+        if not script_name:
+            logger.warning("Callback: token không có scriptName")
+            return {"status": "cached", "profiles": [n for n, _ in to_run], "script": None}
+    except Exception as e:
+        logger.warning(f"Callback: xác thực token thất bại: {e}")
+        return {"status": "cached", "profiles": [n for n, _ in to_run], "script": None}
+
+    # Queue script cho từng profile
+    for pname, debug_address in to_run:
+        profile_data = {
+            "remote_debugging_address": debug_address,
+            "profile_name": pname,
+        }
+        background_tasks.add_task(run_automation_task, script_name, profile_data)
+        logger.info(f"Callback: queued '{script_name}' cho '{pname}'")
+
+    return {
+        "status": "queued",
+        "script": script_name,
+        "profiles": [n for n, _ in to_run],
+    }
 
 
 @app.get("/callback/cache")
