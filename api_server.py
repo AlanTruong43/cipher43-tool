@@ -101,11 +101,17 @@ def check_port(host: str, port: int, retries: int = 5, delay: float = 1.0) -> bo
 
 def run_automation_task(script_name: str, profile_data: dict):
     """Chạy script automation trong background"""
+    import sys
     try:
         project_path = Path(__file__).parent / "project" / f"{script_name}.py"
         if not project_path.exists():
             logger.error(f"Script '{script_name}.py' không tồn tại trong thư mục project/")
             return
+
+        # Ensure project/ dir is on sys.path so `import encoding_fix` works
+        project_dir = str(project_path.parent)
+        if project_dir not in sys.path:
+            sys.path.insert(0, project_dir)
 
         host, port = profile_data["remote_debugging_address"].split(":")
         if not check_port(host, int(port)):
