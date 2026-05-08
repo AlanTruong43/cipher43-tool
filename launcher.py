@@ -9,11 +9,18 @@ Chức năng:
 """
 import os
 import sys
+import platform
+
+# Fix Windows console encoding for Vietnamese text
+if platform.system() == "Windows":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 import json
 import time
 import signal
 import hashlib
-import platform
 import subprocess
 import urllib.request
 from pathlib import Path
