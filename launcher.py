@@ -263,6 +263,13 @@ def clear():
     os.system("cls" if platform.system() == "Windows" else "clear")
 
 
+def safe_input(prompt: str = "") -> str:
+    try:
+        return input(prompt)
+    except EOFError:
+        return ""
+
+
 def status_line() -> str:
     if is_server_running():
         return "● RUNNING  (port 8000)"
@@ -319,7 +326,7 @@ def action_toggle_server():
         print("\nStarting server...")
         ok = start_server()
         print("Server started on port 8000." if ok else "Failed to start. Xem log [5] để biết lỗi.")
-    input("\nEnter để tiếp tục...")
+    safe_input("\nEnter để tiếp tục...")
 
 
 def action_sync(cfg: dict):
@@ -332,7 +339,7 @@ def action_sync(cfg: dict):
     if was_running:
         print("\nKhởi động lại server...")
         start_server()
-    input("\nEnter để tiếp tục...")
+    safe_input("\nEnter để tiếp tục...")
 
 
 def action_list_scripts():
@@ -349,7 +356,7 @@ def action_list_scripts():
             stat = f.stat()
             mtime = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
             print(f"{name:<30} {stat.st_size:>8,}B  {mtime}")
-    input("\nEnter để tiếp tục...")
+    safe_input("\nEnter để tiếp tục...")
 
 
 def action_config(cfg: dict) -> dict:
@@ -365,27 +372,32 @@ def action_config(cfg: dict) -> dict:
     for key, label in fields:
         current = cfg.get(key, "")
         display = f"[{current}]" if current else "[chưa có]"
-        val = input(f"{label} {display}: ").strip()
+        try:
+            val = safe_input(f"{label} {display}: ").strip()
+        except EOFError:
+            break
         if val:
             cfg[key] = val
 
     save_config(cfg)
     print("\nĐã lưu config.json.")
-    input("Enter để tiếp tục...")
+    try:
+        safe_input("Enter để tiếp tục...")
+    except EOFError:
+        pass
     return cfg
-
 
 def action_log():
     print()
     if not LOG_FILE.exists():
         print("Chưa có log file.")
-        input("\nEnter để tiếp tục...")
+        safe_input("\nEnter để tiếp tục...")
         return
     lines = LOG_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
     tail = lines[-50:] if len(lines) > 50 else lines
     print(f"--- {LOG_FILE.name} (50 dòng cuối) ---")
     print("\n".join(tail))
-    input("\nEnter để tiếp tục...")
+    safe_input("\nEnter để tiếp tục...")
 
 
 # ─── Main ──────────────────────────────────────────────────────────────────
@@ -426,7 +438,7 @@ def main():
     while True:
         clear()
         draw_menu(user_info, updates)
-        choice = input("\nChọn: ").strip()
+        choice = safe_input("\nChọn: ").strip()
 
         if choice == "1":
             action_toggle_server()
