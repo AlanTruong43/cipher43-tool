@@ -14,6 +14,7 @@ Upload lên GitHub Releases:
     python3 build.py --upload
 """
 import os
+import ssl
 import sys
 import json
 import shutil
@@ -21,8 +22,15 @@ import hashlib
 import py_compile
 import argparse
 import subprocess
+import urllib.request
+import urllib.error
 from datetime import datetime
 from pathlib import Path
+
+# Fix SSL cert issue on macOS (build tool only — not used in launcher)
+_ssl_ctx = ssl.create_default_context()
+_ssl_ctx.check_hostname = False
+_ssl_ctx.verify_mode = ssl.CERT_NONE
 
 PROJECT_DIR = Path(__file__).parent / "project"
 DIST_DIR = Path(__file__).parent / "dist"
@@ -96,47 +104,91 @@ def build_manifest(scripts: list) -> dict:
 
 
 def upload_release(manifest: dict):
+    import urllib.request
+    import urllib.error
+
     tag = RELEASE_TAG
     title = f"Scripts {manifest['version']}"
 
-    # Check gh CLI available
-    if shutil.which("gh") is None:
-        print("\nERROR: gh CLI not found. Install: https://cli.github.com/")
+    # Get token from env or git credential
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if not token:
+        try:
+            result = subprocess.run(
+                ["git", "credential", "fill"],
+                input=b"protocol=https\nhost=github.com\n",
+                capture_output=True,
+            )
+            for line in result.stdout.decode().splitlines():
+                if line.startswith("password="):
+                    token = line.split("=", 1)[1].strip()
+                    break
+        except Exception:
+            pass
+
+    if not token:
+        print("\nERROR: Không tìm được GitHub token.")
+        print("Set GH_TOKEN env var hoặc đăng nhập git credential.")
         sys.exit(1)
 
-    # Create release (skip if exists)
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "cipher43-build",
+        "Content-Type": "application/json",
+    }
+
+    def gh_api(method: str, path: str, body=None, binary_data=None, content_type="application/json"):
+        url = f"https://api.github.com{path}" if not path.startswith("https://") else path
+        data = json.dumps(body).encode() if body else binary_data
+        h = dict(headers)
+        if binary_data:
+            h["Content-Type"] = content_type
+        req = urllib.request.Request(url, data=data, headers=h, method=method)
+        try:
+            with urllib.request.urlopen(req, context=_ssl_ctx) as r:
+                return json.loads(r.read().decode()), r.status
+        except urllib.error.HTTPError as e:
+            body = e.read().decode()
+            return json.loads(body) if body else {}, e.code
+
+    # Create release
     print(f"\nCreating GitHub Release {tag}...")
-    subprocess.run(
-        ["gh", "release", "create", tag,
-         "--repo", GITHUB_REPO,
-         "--title", title,
-         "--notes", f"Scripts bundle {manifest['version']}",
-         "--latest"],
-        check=False  # ignore if tag already exists
-    )
+    resp, status = gh_api("POST", f"/repos/{GITHUB_REPO}/releases", {
+        "tag_name": tag,
+        "name": title,
+        "body": f"Scripts bundle {manifest['version']}",
+        "make_latest": "true",
+    })
 
-    # Upload manifest
-    print("Uploading scripts-manifest.json...")
-    subprocess.run(
-        ["gh", "release", "upload", tag,
-         "--repo", GITHUB_REPO,
-         str(MANIFEST_FILE),
-         "--clobber"],
-        check=True
-    )
+    if status == 422 and "already_exists" in str(resp):
+        # Release exists — get upload URL
+        print("Release đã tồn tại, lấy upload URL...")
+        resp, _ = gh_api("GET", f"/repos/{GITHUB_REPO}/releases/tags/{tag}")
 
-    # Upload each .pyc
+    upload_url_template = resp.get("upload_url", "")
+    if not upload_url_template:
+        print(f"ERROR: Không lấy được upload_url. Response: {resp}")
+        sys.exit(1)
+
+    # upload_url format: https://uploads.github.com/repos/.../assets{?name,label}
+    upload_base = upload_url_template.split("{")[0]
+
+    def upload_asset(path: Path, name: str):
+        print(f"Uploading {name}...", end=" ", flush=True)
+        data = path.read_bytes()
+        url = f"{upload_base}?name={name}"
+        resp, status = gh_api("POST", url, binary_data=data, content_type="application/octet-stream")
+        if status in (200, 201):
+            print("OK")
+        else:
+            print(f"FAILED (HTTP {status}): {resp.get('errors', resp.get('message', ''))}")
+
+    upload_asset(MANIFEST_FILE, "scripts-manifest.json")
     for script in manifest["scripts"]:
-        pyc_path = DIST_PROJECT_DIR / script["file"]
-        print(f"Uploading {script['file']}...")
-        subprocess.run(
-            ["gh", "release", "upload", tag,
-             "--repo", GITHUB_REPO,
-             str(pyc_path),
-             "--clobber"],
-            check=True
-        )
+        upload_asset(DIST_PROJECT_DIR / script["file"], script["file"])
 
+    print(f"\nDone! https://github.com/{GITHUB_REPO}/releases/tag/{tag}")
     print(f"\nDone! https://github.com/{GITHUB_REPO}/releases/tag/{tag}")
 
 

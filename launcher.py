@@ -53,8 +53,12 @@ def save_config(cfg: dict):
 
 def http_get_json(url: str, timeout: int = 10) -> dict | None:
     try:
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         req = urllib.request.Request(url, headers={"User-Agent": f"cipher43-tool/{VERSION}"})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
             return json.loads(r.read().decode())
     except Exception:
         return None
@@ -62,8 +66,12 @@ def http_get_json(url: str, timeout: int = 10) -> dict | None:
 
 def http_download(url: str, dest: Path, timeout: int = 30) -> bool:
     try:
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         req = urllib.request.Request(url, headers={"User-Agent": f"cipher43-tool/{VERSION}"})
-        with urllib.request.urlopen(req, timeout=timeout) as r, open(dest, "wb") as f:
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r, open(dest, "wb") as f:
             f.write(r.read())
         return True
     except Exception as e:
@@ -123,7 +131,7 @@ def is_server_running() -> bool:
         return False
 
 
-def start_server(cfg: dict) -> bool:
+def start_server() -> bool:
     global _server_proc
     if is_server_running():
         return True
@@ -272,7 +280,7 @@ def pending_updates(cfg: dict) -> int:
         return 0
 
 
-def draw_menu(user_info: str, cfg: dict, updates: int = 0):
+def draw_menu(user_info: str, updates: int = 0):
     width = 44
     border = "═" * width
     print(f"╔{border}╗")
@@ -294,7 +302,7 @@ def draw_menu(user_info: str, cfg: dict, updates: int = 0):
 
 # ─── Menu actions ──────────────────────────────────────────────────────────
 
-def action_toggle_server(cfg: dict):
+def action_toggle_server():
     if is_server_running():
         print("\nStopping server...")
         stop_server()
@@ -302,7 +310,7 @@ def action_toggle_server(cfg: dict):
         print("Stopped." if not is_server_running() else "Still running — try again.")
     else:
         print("\nStarting server...")
-        ok = start_server(cfg)
+        ok = start_server()
         print("Server started on port 8000." if ok else "Failed to start. Xem log [5] để biết lỗi.")
     input("\nEnter để tiếp tục...")
 
@@ -316,7 +324,7 @@ def action_sync(cfg: dict):
     sync_scripts(cfg, silent=False)
     if was_running:
         print("\nKhởi động lại server...")
-        start_server(cfg)
+        start_server()
     input("\nEnter để tiếp tục...")
 
 
@@ -404,17 +412,17 @@ def main():
     # Auto-start
     if cfg.get("tool_token") and not is_server_running():
         print("Đang start server...")
-        start_server(cfg)
+        start_server()
 
     updates = 0
 
     while True:
         clear()
-        draw_menu(user_info, cfg, updates)
+        draw_menu(user_info, updates)
         choice = input("\nChọn: ").strip()
 
         if choice == "1":
-            action_toggle_server(cfg)
+            action_toggle_server()
         elif choice == "2":
             action_sync(cfg)
             updates = 0
