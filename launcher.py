@@ -100,17 +100,22 @@ def verify_token(cfg: dict) -> dict | None:
     user_email = cfg.get("user_email", "")
     if not token:
         return None
+    import urllib.error
+    data = json.dumps({"token": token, "user_email": user_email}).encode()
+    req = urllib.request.Request(
+        f"{BE_URL_DEFAULT}/api/tools/verify-token",
+        data=data,
+        headers={"Content-Type": "application/json", "User-Agent": f"cipher43-tool/{VERSION}"},
+        method="POST",
+    )
     try:
-        import urllib.parse
-        data = json.dumps({"token": token, "user_email": user_email}).encode()
-        req = urllib.request.Request(
-            f"{BE_URL_DEFAULT}/api/tools/verify-token",
-            data=data,
-            headers={"Content-Type": "application/json", "User-Agent": f"cipher43-tool/{VERSION}"},
-            method="POST",
-        )
         with urllib.request.urlopen(req, timeout=10) as r:
             return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        try:
+            return json.loads(e.read().decode())
+        except Exception:
+            return {"success": False, "message": f"HTTP {e.code}"}
     except Exception:
         return None
 
