@@ -98,14 +98,13 @@ def verify_token(cfg: dict) -> dict | None:
     """Gọi BE verify-token, trả về {"scriptName", "toolName"} hoặc None."""
     token = cfg.get("tool_token", "")
     user_email = cfg.get("user_email", "")
-    be_url = cfg.get("be_url", BE_URL_DEFAULT)
     if not token:
         return None
     try:
         import urllib.parse
         data = json.dumps({"token": token, "user_email": user_email}).encode()
         req = urllib.request.Request(
-            f"{be_url}/api/tools/verify-token",
+            f"{BE_URL_DEFAULT}/api/tools/verify-token",
             data=data,
             headers={"Content-Type": "application/json", "User-Agent": f"cipher43-tool/{VERSION}"},
             method="POST",
@@ -119,9 +118,8 @@ def verify_token(cfg: dict) -> dict | None:
 def get_manifest_url(cfg: dict) -> str:
     """Lấy manifest URL từ BE (có verify token), fallback về URL GitHub trực tiếp."""
     token = cfg.get("tool_token", "")
-    be_url = cfg.get("be_url", BE_URL_DEFAULT)
     if token:
-        result = http_get_json(f"{be_url}/api/tools/scripts/manifest?token={token}")
+        result = http_get_json(f"{BE_URL_DEFAULT}/api/tools/scripts/manifest?token={token}")
         if result and result.get("success") and result.get("manifestUrl"):
             return result["manifestUrl"]
     return MANIFEST_FALLBACK
@@ -360,14 +358,12 @@ def action_list_scripts():
 
 
 def action_config(cfg: dict) -> dict:
-    print("\n=== Cài đặt ===")
-    print("(Enter để giữ giá trị hiện tại)\n")
+    print("\n=== Cài đặt ===\n")
 
     fields = [
         ("tool_token", "Tool Token (c43_xxx)"),
         ("user_email", "Email đăng ký trên cipher43.com"),
         ("browser", "Loại browser [genlogin/gologin/gpm]"),
-        ("be_url", "BE URL"),
     ]
     for key, label in fields:
         current = cfg.get(key, "")
@@ -379,12 +375,22 @@ def action_config(cfg: dict) -> dict:
         if val:
             cfg[key] = val
 
+    # Validate token + email trước khi lưu
+    if cfg.get("tool_token") and cfg.get("user_email"):
+        print("\nĐang xác thực...")
+        result = verify_token(cfg)
+        if not result or not result.get("success"):
+            msg = result.get("message", "Không kết nối được BE") if result else "Không kết nối được BE"
+            print(f"Lỗi: {msg}")
+            print("Vui lòng kiểm tra lại Token và Email rồi thử lại.")
+            safe_input("\nEnter để tiếp tục...")
+            return cfg
+        tool_name = result.get("toolName", "")
+        print(f"Xác thực thành công! Tool: {tool_name}")
+
     save_config(cfg)
-    print("\nĐã lưu config.json.")
-    try:
-        safe_input("Enter để tiếp tục...")
-    except EOFError:
-        pass
+    print("Đã lưu cài đặt.")
+    safe_input("\nEnter để tiếp tục...")
     return cfg
 
 def action_log():
@@ -408,21 +414,26 @@ def main():
 
     cfg = load_config()
 
-    # Nếu chưa có config → vào config ngay
-    if not cfg.get("tool_token"):
+    # Nếu chưa có config hoặc token chưa hợp lệ → bắt buộc cài đặt
+    while not cfg.get("tool_token") or not cfg.get("user_email"):
         print("Chưa có cấu hình. Vui lòng điền thông tin:\n")
         cfg = action_config(cfg)
+        if not cfg.get("tool_token") or not cfg.get("user_email"):
+            print("Token và Email là bắt buộc.\n")
 
-    # Verify token
+    # Verify token — bắt buộc pass mới tiếp tục
     print("Xác thực token...")
     info = verify_token(cfg)
-    if info and info.get("success"):
-        tool_name = info.get("toolName", "")
-        user_email = cfg.get("user_email", "")
-        user_info = f"{user_email} — {tool_name}" if tool_name else user_email
-    else:
-        user_info = cfg.get("user_email", "Token chưa xác thực")
-        print(f"Cảnh báo: Không xác thực được token ({user_info})")
+    while not info or not info.get("success"):
+        msg = info.get("message", "Lỗi kết nối") if info else "Không kết nối được server"
+        print(f"Xác thực thất bại: {msg}")
+        print("Vui lòng cập nhật lại Token và Email.\n")
+        cfg = action_config(cfg)
+        info = verify_token(cfg)
+
+    tool_name = info.get("toolName", "")
+    user_email = cfg.get("user_email", "")
+    user_info = f"{user_email} — {tool_name}" if tool_name else user_email
 
     # Silent sync
     print("Đang sync scripts...")
