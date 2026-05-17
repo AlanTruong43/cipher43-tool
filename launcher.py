@@ -188,12 +188,13 @@ def stop_server():
     # Fallback: kill by port
     try:
         if platform.system() == "Windows":
-            out = subprocess.check_output("netstat -ano | findstr :8000", shell=True).decode()
+            out = subprocess.check_output(
+                "netstat -ano | findstr :8000 | findstr LISTENING", shell=True
+            ).decode()
             for line in out.splitlines():
                 parts = line.split()
                 if parts and parts[-1].isdigit():
                     subprocess.run(["taskkill", "/PID", parts[-1], "/F"], capture_output=True)
-                    break
         else:
             subprocess.run(["pkill", "-f", "api_server.py"], capture_output=True)
     except Exception:
