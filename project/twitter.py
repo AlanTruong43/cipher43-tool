@@ -21,12 +21,13 @@ def run(profile_data):
 
     _log(f"Connecting to browser at: {debug_address}...")
 
+    stats = {}
+    target_tab = None
     try:
         co = ChromiumOptions().set_address(debug_address)
         page = ChromiumPage(co)
         _log("Connected!")
 
-        target_tab = None
         for tab in page.get_tabs():
             try:
                 tab.handle_alert(accept=True)
@@ -63,26 +64,12 @@ def run(profile_data):
         login_btn = target_tab.ele('xpath://*[text()="Đăng nhập vào X"]', timeout=5)
         if login_btn:
             _log("NOT LOGGED IN — bỏ qua farming")
-            return {}
-
-        _log("Logged in — bắt đầu farming...")
-        config = _load_config()
-        farmer = XFarmer(target_tab, config, profile_tag=profile_name, log_callback=_log)
-        stats = farmer.farm()
-
-        _log(f"Done — {stats['processed']} tweets, {stats['liked']} liked, {stats['commented']} commented")
-
-        _log("Truy cập anotepad để xác nhận...")
-        try:
-            target_tab.handle_alert(accept=True)
-        except Exception:
-            pass
-        target_tab.get("https://anotepad.com/notes/d65ngf8f")
-        confirm = target_tab.ele('xpath://*[text()="Cipher 43 Lab"]', timeout=15)
-        if confirm:
-            _log("✅ Xác nhận thành công — Cipher 43 Lab")
         else:
-            _log("⚠️ Không tìm thấy xác nhận trên anotepad")
+            _log("Logged in — bắt đầu farming...")
+            config = _load_config()
+            farmer = XFarmer(target_tab, config, profile_tag=profile_name, log_callback=_log)
+            stats = farmer.farm()
+            _log(f"Done — {stats['processed']} tweets, {stats['liked']} liked, {stats['commented']} commented")
 
         return stats
 
@@ -90,6 +77,21 @@ def run(profile_data):
         _log(f"ERROR: {e}")
         raise
     finally:
+        if target_tab is not None:
+            _log("Truy cập anotepad để xác nhận...")
+            try:
+                target_tab.handle_alert(accept=True)
+            except Exception:
+                pass
+            try:
+                target_tab.get("https://anotepad.com/notes/d65ngf8f")
+                confirm = target_tab.ele('xpath://*[text()="Cipher 43 Lab"]', timeout=15)
+                if confirm:
+                    _log("✅ Xác nhận thành công — Cipher 43 Lab")
+                else:
+                    _log("⚠️ Không tìm thấy xác nhận trên anotepad")
+            except Exception as e:
+                _log(f"Anotepad lỗi: {e}")
         _log("Browser left open.")
 
 
