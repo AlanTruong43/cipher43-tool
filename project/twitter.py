@@ -79,19 +79,36 @@ def run(profile_data):
     finally:
         if target_tab is not None:
             _log("Truy cập anotepad để xác nhận...")
-            try:
-                target_tab.handle_alert(accept=True)
-            except Exception:
-                pass
-            try:
-                target_tab.get("https://anotepad.com/notes/d65ngf8f")
-                confirm = target_tab.ele('xpath://*[text()="Cipher 43 Lab"]', timeout=15)
-                if confirm:
-                    _log("✅ Xác nhận thành công — Cipher 43 Lab")
-                else:
-                    _log("⚠️ Không tìm thấy xác nhận trên anotepad")
-            except Exception as e:
-                _log(f"Anotepad lỗi: {e}")
+            _ANOTEPAD = "https://anotepad.com/notes/d65ngf8f"
+            navigated = False
+            for _ in range(3):
+                try:
+                    target_tab.handle_alert(accept=True)
+                except Exception:
+                    pass
+                try:
+                    target_tab.get(_ANOTEPAD)
+                    navigated = True
+                    break
+                except Exception:
+                    try:
+                        target_tab.run_js(f"window.location.href = '{_ANOTEPAD}'")
+                        time.sleep(3)
+                        navigated = True
+                        break
+                    except Exception:
+                        time.sleep(1)
+            if navigated:
+                try:
+                    confirm = target_tab.ele('xpath://*[text()="Cipher 43 Lab"]', timeout=15)
+                    if confirm:
+                        _log("✅ Xác nhận thành công — Cipher 43 Lab")
+                    else:
+                        _log("⚠️ Không tìm thấy xác nhận trên anotepad")
+                except Exception as e:
+                    _log(f"Anotepad check lỗi: {e}")
+            else:
+                _log("❌ Không thể điều hướng đến anotepad")
         _log("Browser left open.")
 
 
