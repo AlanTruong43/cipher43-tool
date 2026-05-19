@@ -402,8 +402,7 @@ def draw_menu(user_info: str, updates: int = 0):
     print(f"║  {sync_label:<{width - 2}}║")
     print(f"║  [3] Xem scripts đã cài{' ' * (width - 24)}║")
     print(f"║  [4] Cài đặt (config.json){' ' * (width - 27)}║")
-    print(f"║  [5] Xem log{' ' * (width - 13)}║")
-    print(f"║  [6] Xem log theo profile{' ' * (width - 26)}║")
+    print(f"║  [5] Xem log theo profile{' ' * (width - 26)}║")
     print(f"║  [0] Thoát{' ' * (width - 11)}║")
     print(f"╚{border}╝")
 
@@ -760,8 +759,6 @@ def main():
                 user_email = cfg.get("user_email", "")
                 user_info = f"{user_email} — {tool_name}" if tool_name else user_email
         elif choice == "5":
-            action_log()
-        elif choice == "6":
             action_log_profile()
         elif choice == "0":
             print("\nTạm biệt!")
