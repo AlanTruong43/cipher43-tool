@@ -181,24 +181,32 @@ def stop_server():
             _server_proc.send_signal(signal.CTRL_BREAK_EVENT)
         else:
             _server_proc.terminate()
-        _server_proc.wait(timeout=5)
+        try:
+            _server_proc.wait(timeout=5)
+        except Exception:
+            _server_proc.kill()
         _server_proc = None
-        return
+    else:
+        # Fallback: kill by port
+        try:
+            if platform.system() == "Windows":
+                out = subprocess.check_output(
+                    "netstat -ano | findstr :8000 | findstr LISTENING", shell=True
+                ).decode()
+                for line in out.splitlines():
+                    parts = line.split()
+                    if parts and parts[-1].isdigit():
+                        subprocess.run(["taskkill", "/PID", parts[-1], "/F"], capture_output=True)
+            else:
+                subprocess.run(["pkill", "-f", "api_server.py"], capture_output=True)
+        except Exception:
+            pass
 
-    # Fallback: kill by port
-    try:
-        if platform.system() == "Windows":
-            out = subprocess.check_output(
-                "netstat -ano | findstr :8000 | findstr LISTENING", shell=True
-            ).decode()
-            for line in out.splitlines():
-                parts = line.split()
-                if parts and parts[-1].isdigit():
-                    subprocess.run(["taskkill", "/PID", parts[-1], "/F"], capture_output=True)
-        else:
-            subprocess.run(["pkill", "-f", "api_server.py"], capture_output=True)
-    except Exception:
-        pass
+    # Poll until port is actually free (max 6s)
+    for _ in range(12):
+        time.sleep(0.5)
+        if not is_server_running():
+            return
 
 
 # ─── Script sync ───────────────────────────────────────────────────────────
@@ -406,7 +414,6 @@ def action_toggle_server():
     if is_server_running():
         print("\nStopping server...")
         stop_server()
-        time.sleep(1)
         print("Stopped." if not is_server_running() else "Still running — try again.")
     else:
         print("\nStarting server...")
