@@ -395,6 +395,7 @@ def draw_menu(user_info: str, updates: int = 0):
     print(f"║  [3] Xem scripts đã cài{' ' * (width - 24)}║")
     print(f"║  [4] Cài đặt (config.json){' ' * (width - 27)}║")
     print(f"║  [5] Xem log{' ' * (width - 13)}║")
+    print(f"║  [6] Xem log theo profile{' ' * (width - 26)}║")
     print(f"║  [0] Thoát{' ' * (width - 11)}║")
     print(f"╚{border}╝")
 
@@ -599,6 +600,95 @@ def action_log():
     safe_input("\nEnter để tiếp tục...")
 
 
+def _fmt_status(status: str) -> str:
+    return {"running": "● RUNNING", "done": "✅ DONE", "error": "❌ ERROR"}.get(status, status)
+
+
+def action_log_profile():
+    """Hiển thị log theo profile. Lấy data từ api_server /status."""
+    print()
+    if not is_server_running():
+        print("Server chưa chạy. Chọn [1] Start trước.")
+        safe_input("\nEnter để tiếp tục...")
+        return
+
+    data = http_get_json("http://127.0.0.1:8000/status", timeout=5)
+    if not data or "tasks" not in data:
+        print("Không lấy được trạng thái từ server.")
+        safe_input("\nEnter để tiếp tục...")
+        return
+
+    tasks = data["tasks"]
+    if not tasks:
+        print("Chưa có profile nào chạy. Mở browser profile để bắt đầu.")
+        safe_input("\nEnter để tiếp tục...")
+        return
+
+    profiles = list(tasks.keys())
+    print("=== Profiles đã/đang chạy ===\n")
+    for i, name in enumerate(profiles, 1):
+        t = tasks[name]
+        started = (t.get("started_at") or "")[11:19]
+        print(f"  [{i}] {name:<30} {_fmt_status(t.get('status', '?')):<12} script={t.get('script', '')} started={started}")
+
+    print()
+    choice = safe_input("Chọn số profile để xem log (Enter để hủy): ").strip()
+    if not choice.isdigit() or not (1 <= int(choice) <= len(profiles)):
+        return
+
+    profile_name = profiles[int(choice) - 1]
+    task = tasks[profile_name]
+
+    clear()
+    print(f"=== Log: {profile_name} ===")
+    print(f"Status   : {_fmt_status(task.get('status', '?'))}")
+    print(f"Script   : {task.get('script', '')}")
+    print(f"Started  : {task.get('started_at', '')}")
+    if task.get("finished_at"):
+        print(f"Finished : {task.get('finished_at')}")
+    if task.get("stats"):
+        print(f"Stats    : {task.get('stats')}")
+    if task.get("error"):
+        print(f"Error    : {task.get('error')}")
+    print()
+    print(f"--- Log entries ({len(task.get('logs', []))}) ---")
+    for entry in task.get("logs", []):
+        print(f"[{entry.get('ts', '')}] {entry.get('msg', '')}")
+
+    print()
+    if task.get("status") == "running":
+        follow = safe_input("Profile đang chạy. Nhấn [f] để follow log (Ctrl+C để dừng), Enter để thoát: ").strip().lower()
+        if follow == "f":
+            _follow_profile_log(profile_name, len(task.get("logs", [])))
+    else:
+        safe_input("Enter để tiếp tục...")
+
+
+def _follow_profile_log(profile_name: str, already_shown: int):
+    """Poll /status/{profile_name} mỗi 1s, in các log mới."""
+    print(f"\n--- Following {profile_name} (Ctrl+C để dừng) ---")
+    sent = already_shown
+    try:
+        while True:
+            task = http_get_json(f"http://127.0.0.1:8000/status/{profile_name}", timeout=5)
+            if not task or "logs" not in task:
+                time.sleep(1)
+                continue
+            logs = task["logs"]
+            if len(logs) > sent:
+                for entry in logs[sent:]:
+                    print(f"[{entry.get('ts', '')}] {entry.get('msg', '')}")
+                sent = len(logs)
+            if task.get("status") in ("done", "error"):
+                print(f"\n--- Kết thúc: {_fmt_status(task['status'])} — stats={task.get('stats')} error={task.get('error')} ---")
+                safe_input("Enter để tiếp tục...")
+                return
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\n--- Dừng follow ---")
+        safe_input("Enter để tiếp tục...")
+
+
 # ─── Main ──────────────────────────────────────────────────────────────────
 
 def main():
@@ -664,6 +754,8 @@ def main():
                 user_info = f"{user_email} — {tool_name}" if tool_name else user_email
         elif choice == "5":
             action_log()
+        elif choice == "6":
+            action_log_profile()
         elif choice == "0":
             print("\nTạm biệt!")
             break

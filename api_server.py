@@ -1,4 +1,12 @@
 # -*- coding: utf-8 -*-
+import sys
+import io
+import platform
+
+if platform.system() == "Windows":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace", line_buffering=True)
+
 from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -18,7 +26,11 @@ import requests as http_requests
 
 from adapters import get_adapter
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[logging.StreamHandler(sys.stdout)],
+    force=True,
+)
 logger = logging.getLogger("API_Server")
 
 CONFIG_PATH = Path(__file__).parent / "config.json"

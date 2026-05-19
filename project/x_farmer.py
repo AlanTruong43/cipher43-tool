@@ -122,11 +122,11 @@ class XFarmer:
                     f"→ {'✅' if has_tag else '❌'} #cipher43lab"
                 )
 
-                if not has_tag:
-                    self._log("❌ Bài mới nhất không có #cipher43lab")
-                    return False
                 if not within_days:
-                    self._log("❌ Bài mới nhất đã quá 4 ngày")
+                    self._log("❌ Bài mới nhất đã quá 4 ngày → dừng farming")
+                    return False
+                if not has_tag:
+                    self._log("❌ Bài mới nhất không có #cipher43lab → dừng farming")
                     return False
 
                 self._log("✅ Điều kiện hợp lệ — tiến hành farming")
@@ -145,7 +145,7 @@ class XFarmer:
 
         # Kiểm tra điều kiện #cipher43lab trước khi farming
         if not self._check_cipher43lab_post():
-            self._log("⛔ Bài mới nhất không có #cipher43lab — dừng farming")
+            self._log("⛔ Không đủ điều kiện — dừng farming")
             return total_stats
 
         for loop in range(self.loop_count):
