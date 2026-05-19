@@ -4,5 +4,23 @@
     "local_tool_url": "https://violeta-lamprophonic-venially.ngrok-free.dev",
     "tool_token": "",
     "genlogin_username": "your_email@gmail.com",
-    "genlogin_password": "your_password"
+    "genlogin_password": "your_password",
+    "farming": {
+        "mode": "newsfeed",
+        "hashtags": ["#AI", "#crypto"],
+        "loop_count": 2,
+        "scroll_duration_seconds": 15,
+        "like_probability": 0.4,
+        "comment_probability": 0.2,
+        "max_tweets_per_loop": 10,
+        "min_delay_between_actions_ms": 3000,
+        "max_delay_between_actions_ms": 8000
+    },
+    "ai_provider": {
+        "type": "demo",
+        "api_key": "sk-94a3264f872b45fea0fcb26eb0c59298a9553bef67cb70e0",
+        "model": "gpt-4.1-nano",
+        "comment_prompt": "You are a real Twitter user. Detect the language of the tweet below and write 1 short natural comment in the SAME language (max 15 words). Return only the comment, no explanation.",
+        "max_tokens": 60
+    }
 }

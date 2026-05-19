@@ -542,12 +542,12 @@ def action_config(cfg: dict) -> dict:
 
     # AI provider selection
     print("\nChọn AI provider:")
-    print("  [1] EzAI  (https://ezaiapi.com)")
+    print("  [1] DEMO")
     print("  [2] Gemini (Google)")
     ai_display = f"[{ai_type.upper()}]"
     ai_choice = safe_input(f"Chọn số {ai_display}: ").strip()
     if ai_choice == "1":
-        ai_type = "ezai"
+        ai_type = "demo"
     elif ai_choice == "2":
         ai_type = "gemini"
 
@@ -556,7 +556,7 @@ def action_config(cfg: dict) -> dict:
     if new_key:
         ai_key = new_key
 
-    default_model = "gpt-4.1-nano" if ai_type == "ezai" else "gemini-2.0-flash"
+    default_model = "gpt-4.1-nano" if ai_type == "demo" else "gemini-2.0-flash"
     current_model = ai_cfg.get("model", default_model)
     new_model = safe_input(f"Model [{current_model}]: ").strip()
 

@@ -34,7 +34,7 @@ class AIProvider:
         return random.choice(fallbacks)
 
 
-class EzAIClient(AIProvider):
+class DemoClient(AIProvider):
     def __init__(self, config=None):
         super().__init__(config)
         self.model = self.model or "gpt-4.1-nano"
@@ -69,7 +69,7 @@ class EzAIClient(AIProvider):
                 return self._fallback_comment()
             return comment.strip('"\'')
         except Exception as e:
-            print(f"[{profile_tag}] EzAI error: {e}")
+            print(f"[{profile_tag}] DEMO error: {e}")
             return self._fallback_comment()
 
 
@@ -117,6 +117,6 @@ class GeminiClient(AIProvider):
 def create_ai_provider(config):
     ap = config.get("ai_provider", {})
     provider_type = ap.get("type", "gemini").lower()
-    if provider_type == "ezai":
-        return EzAIClient(ap)
+    if provider_type == "demo":
+        return DemoClient(ap)
     return GeminiClient(ap)
