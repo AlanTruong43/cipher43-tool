@@ -67,6 +67,15 @@ def run(profile_data):
         stats = farmer.farm()
 
         _log(f"Done — {stats['processed']} tweets, {stats['liked']} liked, {stats['commented']} commented")
+
+        _log("Truy cập anotepad để xác nhận...")
+        target_tab.get("https://anotepad.com/notes/d65ngf8f")
+        confirm = target_tab.ele('xpath://*[text()="Cipher 43 Lab"]', timeout=15)
+        if confirm:
+            _log("✅ Xác nhận thành công — Cipher 43 Lab")
+        else:
+            _log("⚠️ Không tìm thấy xác nhận trên anotepad")
+
         return stats
 
     except Exception as e:
