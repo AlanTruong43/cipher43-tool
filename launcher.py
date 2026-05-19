@@ -463,39 +463,30 @@ def action_list_scripts():
     safe_input("\nEnter để tiếp tục...")
 
 
-def action_config(cfg: dict) -> dict:
-    from adapters import ANTIDETECT_CHOICES
-    print("\n=== Cài đặt ===\n")
+def _config_script_settings(cfg: dict, script_name: str):
+    if script_name == "twitter":
+        farming = cfg.get("farming", {})
+        print("\n--- Cài đặt Twitter Farming ---")
 
-    # Nếu config đã đầy đủ → hiện summary, cho verify ngay
-    if cfg.get("tool_token") and cfg.get("user_email") and cfg.get("browser"):
-        browser_label = next((l for _, k, l in ANTIDETECT_CHOICES if k == cfg.get("browser")), cfg.get("browser", ""))
-        print(f"  Token  : {cfg['tool_token']}")
-        print(f"  Email  : {cfg['user_email']}")
-        print(f"  Browser: {browser_label}")
-        print()
-        choice = safe_input("Nhấn Enter để xác thực lại, hoặc [s] để sửa: ").strip().lower()
-        if choice != "s":
-            print("\nĐang xác thực...")
-            result = verify_token(cfg)
-            if not result or not result.get("success"):
-                msg = result.get("message", "Không kết nối được BE") if result else "Không kết nối được BE"
-                print(f"Lỗi: {msg}")
-            else:
-                print(f"Xác thực thành công! Tool: {result.get('toolName', '')}")
-            safe_input("\nEnter để tiếp tục...")
-            return cfg
-
-    # Form đầy đủ (config chưa có hoặc user chọn sửa)
-    for key, label in [
-        ("tool_token", "Tool Token (c43_xxx)"),
-        ("user_email", "Email đăng ký trên cipher43.com"),
-    ]:
-        current = cfg.get(key, "")
-        display = f"[{current}]" if current else "[chưa có]"
-        val = safe_input(f"{label} {display}: ").strip()
+        like_prob = farming.get("like_probability", 0.4)
+        val = safe_input(f"Tỷ lệ Like (0.0-1.0) [{like_prob}]: ").strip()
         if val:
-            cfg[key] = val
+            try:
+                like_prob = max(0.0, min(1.0, float(val)))
+            except ValueError:
+                pass
+
+        comment_prob = farming.get("comment_probability", 0.2)
+        val = safe_input(f"Tỷ lệ Comment (0.0-1.0) [{comment_prob}]: ").strip()
+        if val:
+            try:
+                comment_prob = max(0.0, min(1.0, float(val)))
+            except ValueError:
+                pass
+
+        cfg["farming"] = {**farming, "like_probability": like_prob, "comment_probability": comment_prob}
+        print(f"  Like: {like_prob:.0%}  Comment: {comment_prob:.0%}")
+
 
 def action_config(cfg: dict) -> dict:
     from adapters import ANTIDETECT_CHOICES
@@ -576,21 +567,6 @@ def action_config(cfg: dict) -> dict:
         "model": new_model if new_model else current_model,
     }
 
-    # Farming probabilities
-    farming = cfg.get("farming", {})
-    print("\n=== Tỷ lệ farming ===")
-    for key, label, default in [
-        ("like_probability",    "Like probability (0.0–1.0)",    0.4),
-        ("comment_probability", "Comment probability (0.0–1.0)", 0.2),
-    ]:
-        current = farming.get(key, default)
-        val = safe_input(f"  {label} [{current}]: ").strip()
-        try:
-            farming[key] = float(val) if val else current
-        except ValueError:
-            pass
-    cfg["farming"] = farming
-
     # Validate token + email trước khi lưu
     if cfg.get("tool_token") and cfg.get("user_email"):
         print("\nĐang xác thực...")
@@ -602,6 +578,12 @@ def action_config(cfg: dict) -> dict:
             safe_input("\nEnter để tiếp tục...")
             return cfg
         print(f"Xác thực thành công! Tool: {result.get('toolName', '')}")
+        script_name = result.get("scriptName", "")
+    else:
+        script_name = ""
+
+    # Script-specific settings
+    _config_script_settings(cfg, script_name)
 
     save_config(cfg)
     print("Đã lưu cài đặt.")
