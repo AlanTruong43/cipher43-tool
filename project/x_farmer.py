@@ -165,7 +165,13 @@ class XFarmer:
             if loop < self.loop_count - 1:
                 wait = random.randint(60, 120)
                 self._log(f"Nghỉ {wait}s trước loop tiếp theo...")
-                time.sleep(wait)
+                elapsed = 0
+                while elapsed < wait:
+                    chunk = min(10, wait - elapsed)
+                    time.sleep(chunk)
+                    elapsed += chunk
+                    if elapsed < wait:
+                        self._log(f"  còn {wait - elapsed}s...")
 
         self._log(
             f"Hoàn thành: {total_stats['processed']} tweets | "

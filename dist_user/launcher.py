@@ -576,6 +576,21 @@ def action_config(cfg: dict) -> dict:
         "model": new_model if new_model else current_model,
     }
 
+    # Farming probabilities
+    farming = cfg.get("farming", {})
+    print("\n=== Tỷ lệ farming ===")
+    for key, label, default in [
+        ("like_probability",    "Like probability (0.0–1.0)",    0.4),
+        ("comment_probability", "Comment probability (0.0–1.0)", 0.2),
+    ]:
+        current = farming.get(key, default)
+        val = safe_input(f"  {label} [{current}]: ").strip()
+        try:
+            farming[key] = float(val) if val else current
+        except ValueError:
+            pass
+    cfg["farming"] = farming
+
     # Validate token + email trước khi lưu
     if cfg.get("tool_token") and cfg.get("user_email"):
         print("\nĐang xác thực...")
