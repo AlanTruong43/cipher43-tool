@@ -387,7 +387,8 @@ async def genlogin_callback(request: Request, background_tasks: BackgroundTasks)
             logger.warning("Callback: tool_token chưa cấu hình trong config.json")
             return {"status": "no_token", "profiles": [n for n, _ in to_run]}
 
-        payload = verify_token(tool_token, config["be_url"], config.get("user_email", ""))
+        be_url = config.get("be_url", "https://cipher-43-lab-be-production.up.railway.app")
+        payload = verify_token(tool_token, be_url, config.get("user_email", ""))
         script_name = payload.get("scriptName", "")
         if not script_name:
             logger.warning("Callback: token không có scriptName")
