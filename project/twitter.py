@@ -54,6 +54,10 @@ def run(profile_data):
         except Exception:
             pass
 
+        try:
+            target_tab.handle_alert(accept=True)
+        except Exception:
+            pass
         target_tab.get("https://x.com/home")
         time.sleep(3)
         login_btn = target_tab.ele('xpath://*[text()="Đăng nhập vào X"]', timeout=5)
@@ -69,6 +73,10 @@ def run(profile_data):
         _log(f"Done — {stats['processed']} tweets, {stats['liked']} liked, {stats['commented']} commented")
 
         _log("Truy cập anotepad để xác nhận...")
+        try:
+            target_tab.handle_alert(accept=True)
+        except Exception:
+            pass
         target_tab.get("https://anotepad.com/notes/d65ngf8f")
         confirm = target_tab.ele('xpath://*[text()="Cipher 43 Lab"]', timeout=15)
         if confirm:

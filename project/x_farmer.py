@@ -47,6 +47,17 @@ class XFarmer:
         if self._log_callback:
             self._log_callback(msg)
 
+    def _safe_navigate(self, url: str):
+        try:
+            self.tab.handle_alert(accept=True)
+        except Exception:
+            pass
+        try:
+            self.tab.set.alert.auto_handle(on_off=True, accept=True)
+        except Exception:
+            pass
+        self.tab.get(url)
+
     # ── Kiểm tra bài viết mới nhất có #cipher43lab không ─────────────────────
     def _check_cipher43lab_post(self):
         """
@@ -54,7 +65,7 @@ class XFarmer:
         Trả về True nếu bài đó chứa #cipher43lab VÀ không quá 4 ngày tuổi.
         """
         try:
-            self.tab.get("https://x.com/home")
+            self._safe_navigate("https://x.com/home")
             time.sleep(2)
             profile_link = self.tab.ele('css:a[data-testid="AppTabBar_Profile_Link"]', timeout=5)
             if not profile_link:
@@ -68,9 +79,9 @@ class XFarmer:
             self._log(f"Kiểm tra profile: {profile_url}")
             # profile_url có thể là path (/user) hoặc full URL
             if profile_url.startswith("http"):
-                self.tab.get(profile_url)
+                self._safe_navigate(profile_url)
             else:
-                self.tab.get(f"https://x.com{profile_url}")
+                self._safe_navigate(f"https://x.com{profile_url}")
             _random_delay(3000, 4000)
 
             tweets = self.tab.eles(SEL_TWEET_ARTICLE)
@@ -182,16 +193,14 @@ class XFarmer:
     # ── Mode 1: Newsfeed ───────────────────────────────────────────────────────
     def farm_newsfeed(self):
         self._log("🌾 NEWSFEED — lướt feed, like & comment")
-        self.tab.get("https://x.com/home")
-        _random_delay(3000, 5000)
-        self._log(f"Warm-up scroll {self.scroll_duration}s...")
+        self._safe_navigate("https://x.com/home")
         self._scroll_feed(self.scroll_duration)
         return self._process_tweets_on_page()
 
     # ── Mode 2: Hashtag ────────────────────────────────────────────────────────
     def farm_hashtag(self, hashtag):
         self._log(f"🔍 HASHTAG — tìm kiếm: {hashtag}")
-        self.tab.get("https://x.com/explore")
+        self._safe_navigate("https://x.com/explore")
         _random_delay(2000, 4000)
 
         search_input = self.tab.ele(SEL_SEARCH_INPUT, timeout=10)
@@ -208,7 +217,7 @@ class XFarmer:
                 _random_delay(2000, 3000)
         else:
             encoded = hashtag.replace("#", "%23")
-            self.tab.get(f"https://x.com/search?q={encoded}&src=typed_query&f=live")
+            self._safe_navigate(f"https://x.com/search?q={encoded}&src=typed_query&f=live")
             _random_delay(3000, 5000)
 
         self._log(f"Warm-up scroll {self.scroll_duration}s...")
