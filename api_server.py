@@ -412,5 +412,59 @@ async def genlogin_callback(request: Request, background_tasks: BackgroundTasks)
     }
 
 
+@app.post("/run-profile")
+async def run_profile(request: Request, background_tasks: BackgroundTasks):
+    """
+    Dành cho antidetect không có webhook (GPMLogin Global).
+    FE gọi endpoint này với profile_id → tool tự start profile, lấy port, chạy script.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return {"status": "error", "message": "Invalid JSON body"}
+
+    profile_id = body.get("profile_id", "").strip()
+    profile_name = body.get("profile_name", profile_id).strip()
+
+    if not profile_id:
+        return {"status": "error", "message": "profile_id là bắt buộc"}
+
+    try:
+        config = load_config()
+        tool_token = config.get("tool_token", "")
+        if not tool_token:
+            return {"status": "error", "message": "tool_token chưa cấu hình trong config.json"}
+
+        be_url = config.get("be_url", "https://cipher-43-lab-be-production.up.railway.app")
+        payload = verify_token(tool_token, be_url, config.get("user_email", ""))
+        script_name = payload.get("scriptName", "")
+        if not script_name:
+            return {"status": "error", "message": "Token không có scriptName"}
+    except Exception as e:
+        return {"status": "error", "message": f"Xác thực token thất bại: {e}"}
+
+    try:
+        adapter = get_adapter(config.get("browser", ""))
+        if not hasattr(adapter, "start_profile"):
+            return {"status": "error", "message": f"Antidetect '{config.get('browser')}' không hỗ trợ /run-profile"}
+        debug_address = adapter.start_profile(profile_id)
+    except Exception as e:
+        return {"status": "error", "message": f"Không thể start profile: {e}"}
+
+    profile_data = {
+        "remote_debugging_address": debug_address,
+        "profile_name": profile_name,
+    }
+    background_tasks.add_task(run_automation_task, script_name, profile_data)
+    logger.info(f"run-profile: queued '{script_name}' cho '{profile_name}' tại {debug_address}")
+
+    return {
+        "status": "queued",
+        "script": script_name,
+        "profile": profile_name,
+        "debug_address": debug_address,
+    }
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

@@ -7,10 +7,6 @@ BASE = "http://127.0.0.1:9495"
 class GPMGlobalAdapter(AntidetectAdapter):
 
     def list_profiles(self) -> list[dict]:
-        """
-        GPMLogin Global không trả running status trong list endpoint.
-        Fallback callback sẽ không hoạt động — chỉ dùng khi callback gửi port trực tiếp.
-        """
         try:
             res = requests.get(
                 f"{BASE}/api/v1/profiles",
@@ -36,3 +32,16 @@ class GPMGlobalAdapter(AntidetectAdapter):
             ]
         except Exception:
             return []
+
+    def start_profile(self, profile_id: str) -> str:
+        """Start profile và trả về debug address '127.0.0.1:PORT'."""
+        res = requests.get(
+            f"{BASE}/api/v1/profiles/start/{profile_id}",
+            timeout=30,
+        )
+        res.raise_for_status()
+        data = res.json().get("data", {})
+        port = data.get("remote_debugging_port")
+        if not port:
+            raise RuntimeError(f"GPMGlobal: Không lấy được remote_debugging_port cho profile '{profile_id}'")
+        return f"127.0.0.1:{port}"

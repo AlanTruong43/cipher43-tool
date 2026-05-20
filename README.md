@@ -84,7 +84,8 @@ Browser sẽ tự POST đến đây sau khi profile mở xong.
 |---|---|
 | `GET /` | Kiểm tra server online |
 | `GET /scripts` | Liệt kê scripts trong `project/` |
-| `GET,POST /callback/profile-ready` | Browser gọi sau khi profile mở |
+| `GET,POST /callback/profile-ready` | Browser gọi sau khi profile mở (GenLogin, GoLogin, GPM) |
+| `POST /run-profile` | FE gọi để start profile và chạy script (GPMLogin Global) |
 | `GET /status` | Trạng thái tất cả tasks đang/đã chạy |
 | `GET /status/{profile_name}` | Trạng thái task của một profile |
 | `GET /status/stream/{profile_name}` | SSE stream log realtime của profile |
