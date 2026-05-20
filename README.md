@@ -6,7 +6,7 @@ FastAPI server chạy trên **máy Windows local**, tự động chạy script a
 
 - Python 3.11+
 - `pip install -r requirements.txt`
-- Antidetect browser đang chạy (Genlogin tại `http://127.0.0.1:55550`)
+- Antidetect browser đang chạy (GenLogin: `127.0.0.1:55550`, GPMLogin Global: `127.0.0.1:9495`)
 
 ## Cấu trúc
 
@@ -42,7 +42,7 @@ Tạo file `config.json` (không commit vào git):
 
 - `tool_token` — lấy từ web dashboard (nút **Lấy Token** trong trang Tool), xác định script nào sẽ chạy
 - `user_email` — gmail đã đăng ký tài khoản trên web, dùng để xác minh quyền truy cập
-- `browser` — hiện hỗ trợ: `genlogin`, `gologin`, `gpm`
+- `browser` — hiện hỗ trợ: `genlogin`, `gologin`, `gpm`, `gpmglobal`
 
 ## Khởi chạy
 
