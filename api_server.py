@@ -178,7 +178,7 @@ async def add_private_network_header(request: Request, call_next):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def check_port(host: str, port: int, retries: int = 5, delay: float = 1.0) -> bool:
+def check_port(host: str, port: int, retries: int = 20, delay: float = 2.0) -> bool:
     for attempt in range(retries):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(1)
