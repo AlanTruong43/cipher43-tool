@@ -351,6 +351,7 @@ async def genlogin_callback(request: Request, background_tasks: BackgroundTasks)
     port = (
         data.get("port") or data.get("debug_port")
         or data.get("debugPort") or data.get("remotePort")
+        or data.get("remote_debugging_port")
     )
     ws_endpoint = data.get("wsEndpoint") or data.get("ws_endpoint")
 
