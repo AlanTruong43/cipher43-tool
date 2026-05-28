@@ -360,12 +360,31 @@ async def genlogin_callback(request: Request, background_tasks: BackgroundTasks)
         if m:
             port = m.group(1)
 
+    profile_id = (
+        data.get("profile_id") or data.get("profileId")
+        or data.get("id")
+    )
+
     to_run = []
 
     if profile_name and port:
         addr = f"127.0.0.1:{port}"
         to_run.append((str(profile_name).strip(), addr))
         logger.info(f"Callback: profile '{profile_name}' → {addr}")
+    elif profile_id and not port:
+        # Antidetect gửi profileId nhưng không gửi port → tự lấy port qua adapter
+        try:
+            config = load_config()
+            adapter = get_adapter(config.get("browser", ""))
+            if hasattr(adapter, "start_profile"):
+                addr = adapter.start_profile(str(profile_id).strip())
+                name = profile_name or str(profile_id).strip()
+                to_run.append((name, addr))
+                logger.info(f"Callback: got port for '{name}' via adapter → {addr}")
+            else:
+                logger.warning(f"Callback: adapter không hỗ trợ start_profile, bỏ qua profileId={profile_id}")
+        except Exception as e:
+            logger.warning(f"Callback: lấy port qua adapter thất bại: {e}")
     else:
         try:
             config = load_config()
