@@ -344,11 +344,17 @@ async def genlogin_callback(request: Request, background_tasks: BackgroundTasks)
     params = dict(request.query_params)
     data = {**params, **body}
 
-    profile_name = (
+    def _clean(v):
+        """Strip curly braces GPMLogin Global wraps around template values."""
+        if isinstance(v, str):
+            return v.strip("{}").strip()
+        return v
+
+    profile_name = _clean(
         data.get("name") or data.get("profile_name")
         or data.get("profileName") or data.get("profile")
     )
-    port = (
+    port = _clean(
         data.get("port") or data.get("debug_port")
         or data.get("debugPort") or data.get("remotePort")
         or data.get("remote_debugging_port")
