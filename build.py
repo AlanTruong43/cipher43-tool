@@ -47,6 +47,7 @@ CORE_FILES = [
     "adapters/genlogin.py",
     "adapters/gologin.py",
     "adapters/gpm.py",
+    "adapters/gpmglobal.py",
 ]
 
 
