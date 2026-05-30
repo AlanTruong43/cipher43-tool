@@ -26,7 +26,7 @@ import urllib.request
 from pathlib import Path
 from datetime import datetime
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 BASE_DIR = Path(__file__).parent
 CONFIG_FILE = BASE_DIR / "config.json"
